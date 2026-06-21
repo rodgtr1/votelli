@@ -15,9 +15,11 @@ let package = Package(
                 .headerSearchPath("../../third_party/whisper.cpp/ggml/include")
             ]
         ),
+        // Pure text logic, kept separate so it's unit-testable without linking whisper.
+        .target(name: "MurmurText"),
         .executableTarget(
             name: "Murmur",
-            dependencies: ["CWhisper"],
+            dependencies: ["CWhisper", "MurmurText"],
             swiftSettings: [
                 .swiftLanguageMode(.v5)
             ],
@@ -27,6 +29,10 @@ let package = Package(
                     "-lwhisper"
                 ])
             ]
+        ),
+        .testTarget(
+            name: "MurmurTests",
+            dependencies: ["MurmurText"]
         )
     ]
 )

@@ -92,6 +92,9 @@ final class AudioRecorder {
         }
     }
 
+    /// Controls how strongly mic loudness drives the waveform height.
+    private static let levelGain: Float = 9
+
     /// RMS mapped to a perceptual 0...1 range for the waveform display.
     private static func loudness(of frame: UnsafeBufferPointer<Float>) -> Float {
         guard !frame.isEmpty else { return 0 }
@@ -99,7 +102,7 @@ final class AudioRecorder {
         for s in frame { sum += s * s }
         let rms = (sum / Float(frame.count)).squareRoot()
         // Voice RMS is small; boost and soft-clip to 0...1.
-        let scaled = (rms * 7).squareRoot()
+        let scaled = (rms * levelGain).squareRoot()
         return min(max(scaled, 0), 1)
     }
 }

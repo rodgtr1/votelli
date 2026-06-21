@@ -1,5 +1,6 @@
 import AppKit
 import AVFoundation
+import MurmurText
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var status: StatusItemController!
@@ -126,10 +127,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // Ignore clips shorter than ~0.1s (accidental taps).
             guard samples.count > 1_600 else { mdebug("clip too short (\(samples.count) samples)"); return }
             guard let text = self.transcriber?.transcribe(samples) else { mlog("transcribe returned nil"); return }
-            let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            var cleaned = TextProcessing.clean(text)
             mlog("transcribed \(cleaned.count) chars from \(samples.count) samples")
             mdebug("text: \"\(cleaned)\"")
             guard !cleaned.isEmpty else { return }
+            if Settings.shared.addTrailingSpace { cleaned += " " }
 
             DispatchQueue.main.async {
                 let trusted = Permissions.accessibilityEnabled(prompt: false)

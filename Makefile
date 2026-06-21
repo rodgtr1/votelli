@@ -5,6 +5,12 @@ BIN := $(APP)/Contents/MacOS/Murmur
 
 all: app
 
+# One-command setup for a fresh clone: signing identity, whisper libs, model.
+setup:
+	bash scripts/setup_signing.sh
+	bash scripts/build_whisper.sh
+	bash scripts/fetch_model.sh
+
 # Build whisper.cpp shared libraries (Metal-accelerated).
 whisper:
 	bash scripts/build_whisper.sh
@@ -28,6 +34,10 @@ run: app
 # Stream the running app's logs (NSLog + whisper stderr go to the unified log).
 logs:
 	log stream --level debug --predicate 'process == "Murmur"'
+
+# Build a drag-to-Applications DMG (self-signed; see scripts/make_dmg.sh notes).
+dmg: app
+	bash scripts/make_dmg.sh
 
 # Install to /Applications and (re)launch from there. The signed bundle is
 # relocatable, so copying preserves the signature and TCC grants.

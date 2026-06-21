@@ -80,11 +80,18 @@ final class RecordingIndicator {
     }
 
     private func reposition() {
-        guard let screen = NSScreen.main else { return }
+        guard let screen = Self.activeScreen() else { return }
         let visible = screen.visibleFrame
         let x = visible.midX - Self.size.width / 2
         let y = visible.minY + 120
         panel.setFrameOrigin(NSPoint(x: x, y: y))
+    }
+
+    /// The screen the mouse is on, so the HUD appears on the display you're using.
+    private static func activeScreen() -> NSScreen? {
+        let mouse = NSEvent.mouseLocation
+        return NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) }
+            ?? NSScreen.main
     }
 }
 
