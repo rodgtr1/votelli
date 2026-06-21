@@ -29,7 +29,7 @@ final class AudioRecorder {
         let input = engine.inputNode
         let inputFormat = input.inputFormat(forBus: 0)
         guard inputFormat.sampleRate > 0 else {
-            NSLog("Murmur: no input format available (mic permission?)")
+            NSLog("Votelli: no input format available (mic permission?)")
             return
         }
         converter = AVAudioConverter(from: inputFormat, to: targetFormat)
@@ -43,7 +43,7 @@ final class AudioRecorder {
             try engine.start()
             isRecording = true
         } catch {
-            NSLog("Murmur: audio engine failed to start: \(error)")
+            NSLog("Votelli: audio engine failed to start: \(error)")
             input.removeTap(onBus: 0)
         }
     }

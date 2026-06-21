@@ -1,5 +1,5 @@
 import XCTest
-@testable import MurmurText
+@testable import VotelliText
 
 final class TextProcessingTests: XCTestCase {
     func testTrimsWhitespace() {

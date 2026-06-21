@@ -1,6 +1,6 @@
 import AppKit
 import AVFoundation
-import MurmurText
+import VotelliText
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var status: StatusItemController!
@@ -9,10 +9,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let indicator = RecordingIndicator()
     private let preferences = PreferencesWindowController()
     private var transcriber: Transcriber?
-    private let workQueue = DispatchQueue(label: "media.travis.murmur.transcribe", qos: .userInitiated)
+    private let workQueue = DispatchQueue(label: "media.travis.votelli.transcribe", qos: .userInitiated)
 
     /// Mutated only on the main thread.
-    private var state: MurmurState = .idle
+    private var state: VotelliState = .idle
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         status = StatusItemController()
@@ -90,12 +90,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func loadModel() {
         guard let path = Bundle.main.path(forResource: "ggml-base.en", ofType: "bin") else {
-            NSLog("Murmur: bundled model ggml-base.en.bin not found")
+            NSLog("Votelli: bundled model ggml-base.en.bin not found")
             return
         }
         workQueue.async { [weak self] in
             let t = Transcriber(modelPath: path, useGPU: true)
-            if t == nil { NSLog("Murmur: failed to load whisper model") }
+            if t == nil { NSLog("Votelli: failed to load whisper model") }
             self?.transcriber = t
         }
     }

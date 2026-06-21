@@ -1,7 +1,7 @@
-# Murmur
+# Votelli
 
 A dead-simple, push-to-talk voice-to-text app for macOS. Hold a key, talk, release —
-Murmur transcribes locally with Whisper and types the text into whatever app has focus.
+Votelli transcribes locally with Whisper and types the text into whatever app has focus.
 
 Lives in the menu bar (top right), not the Dock. No window, no fuss.
 
@@ -27,14 +27,14 @@ Lives in the menu bar (top right), not the Dock. No window, no fuss.
 ## Build & run
 
 ```bash
-git clone --recurse-submodules <repo-url> murmur
-cd murmur
+git clone --recurse-submodules <repo-url> votelli
+cd votelli
 make setup     # one time: signing identity, whisper libs, model download
 make install   # build, bundle, sign, copy to /Applications, launch
 ```
 
 `make setup` does three things once:
-- creates a stable self-signed "Murmur Dev" code-signing identity so your
+- creates a stable self-signed "Votelli Dev" code-signing identity so your
   permissions persist across rebuilds (`scripts/setup_signing.sh`),
 - builds whisper.cpp as Metal-accelerated shared libraries,
 - downloads the `base.en` model into `Resources/`.
@@ -44,7 +44,7 @@ without an "unidentified developer" warning.
 
 ## First-run permissions
 
-macOS can't pre-grant these — you approve each one. On first launch Murmur asks for:
+macOS can't pre-grant these — you approve each one. On first launch Votelli asks for:
 
 | Permission | Why |
 |------------|-----|
@@ -54,7 +54,7 @@ macOS can't pre-grant these — you approve each one. On first launch Murmur ask
 
 Preferences has a **Permissions** panel showing the status of each with a button to
 open the matching System Settings pane. After granting Accessibility, relaunch once
-(`pkill -x Murmur; open /Applications/Murmur.app`).
+(`pkill -x Votelli; open /Applications/Votelli.app`).
 
 ## Usage
 
@@ -68,7 +68,7 @@ open the matching System Settings pane. After granting Accessibility, relaunch o
 |--------|--------------|
 | `make setup` | One-time: signing identity, whisper libs, model |
 | `make install` | Build, bundle, sign, copy to /Applications, launch |
-| `make app` | Build and assemble `Murmur.app` without installing |
+| `make app` | Build and assemble `Votelli.app` without installing |
 | `make run` | Build and launch from the repo directory |
 | `make dmg` | Build a drag-to-Applications DMG |
 | `make logs` | Stream the running app's logs |
@@ -84,7 +84,7 @@ Hold key  →  AVAudioEngine (16kHz mono)  →  whisper.cpp (Metal)  →  CGEven
 - `HotkeyMonitor` — a `listenOnly` CGEvent tap watches `flagsChanged` for the chosen modifier.
 - `AudioRecorder` — captures the mic, resamples to 16kHz mono float, and reports live levels for the waveform.
 - `Transcriber` — thin C wrapper (`Sources/CWhisper`) over whisper.cpp, loaded once off the main thread.
-- `TextProcessing` (`Sources/MurmurText`) — strips Whisper non-speech annotations like `[BLANK_AUDIO]`; unit-tested via `swift test`.
+- `TextProcessing` (`Sources/VotelliText`) — strips Whisper non-speech annotations like `[BLANK_AUDIO]`; unit-tested via `swift test`.
 - `TextInjector` — synthesizes Unicode key events so text lands at the cursor without touching the clipboard.
 
 ## Configuration
@@ -94,7 +94,7 @@ be set from the command line (keycodes: Right Option `61`, Left Option `58`,
 Right Command `54`, Left Command `55`, Right Control `62`, Right Shift `60`, Fn `63`):
 
 ```bash
-defaults write media.travis.murmur hotkeyKeyCode -int 54   # 54 = Right Command
+defaults write media.travis.votelli hotkeyKeyCode -int 54   # 54 = Right Command
 ```
 
 ## Troubleshooting
@@ -103,18 +103,18 @@ defaults write media.travis.murmur hotkeyKeyCode -int 54   # 54 = Right Command
   the current build. Open Preferences → Permissions, enable Accessibility, relaunch.
 - **Permissions keep resetting** — stale TCC entries from older builds. Reset and re-grant once:
   ```bash
-  tccutil reset Accessibility media.travis.murmur
+  tccutil reset Accessibility media.travis.votelli
   ```
-- **See what's happening** — `make logs`, or read `~/Library/Logs/Murmur.log`. For verbose
-  output (per-keystroke events, transcribed text): `MURMUR_DEBUG=1 open /Applications/Murmur.app`.
+- **See what's happening** — `make logs`, or read `~/Library/Logs/Votelli.log`. For verbose
+  output (per-keystroke events, transcribed text): `VOTELLI_DEBUG=1 open /Applications/Votelli.app`.
 
 ## Distributing a prebuilt DMG
 
-`make dmg` produces `Murmur-<version>.dmg`. Because the app is self-signed (not
+`make dmg` produces `Votelli-<version>.dmg`. Because the app is self-signed (not
 notarized), anyone who **downloads** it must right-click → Open on first launch, or run:
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/Murmur.app
+xattr -dr com.apple.quarantine /Applications/Votelli.app
 ```
 
 The recommended path for others is to build from source (no warning).

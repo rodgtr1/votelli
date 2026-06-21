@@ -1,6 +1,6 @@
 import AppKit
 
-/// Modifier keys Murmur can use as push-to-talk, with their virtual keycodes,
+/// Modifier keys Votelli can use as push-to-talk, with their virtual keycodes,
 /// display names, and device-dependent CGEvent flag bits.
 enum Keymap {
     struct Mod {

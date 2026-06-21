@@ -1,6 +1,6 @@
 import AppKit
 
-enum MurmurState {
+enum VotelliState {
     case idle
     case recording
     case transcribing
@@ -54,7 +54,7 @@ final class StatusItemController {
         menu.addItem(im)
 
         menu.addItem(.separator())
-        let quit = NSMenuItem(title: "Quit Murmur", action: #selector(quit), keyEquivalent: "q")
+        let quit = NSMenuItem(title: "Quit Votelli", action: #selector(quit), keyEquivalent: "q")
         quit.target = self
         menu.addItem(quit)
 
@@ -69,7 +69,7 @@ final class StatusItemController {
         hintItem.title = "Hold \(name) to talk"
     }
 
-    func setState(_ state: MurmurState) {
+    func setState(_ state: VotelliState) {
         DispatchQueue.main.async {
             self.statusItem.button?.image = Self.icon(for: state)
             switch state {
@@ -102,19 +102,19 @@ final class StatusItemController {
         onQuit?()
     }
 
-    private static func icon(for state: MurmurState) -> NSImage? {
+    private static func icon(for state: VotelliState) -> NSImage? {
         switch state {
         case .idle:
-            let img = NSImage(systemSymbolName: "mic", accessibilityDescription: "Murmur idle")
+            let img = NSImage(systemSymbolName: "mic", accessibilityDescription: "Votelli idle")
             img?.isTemplate = true
             return img
         case .transcribing:
-            let img = NSImage(systemSymbolName: "waveform", accessibilityDescription: "Murmur transcribing")
+            let img = NSImage(systemSymbolName: "waveform", accessibilityDescription: "Votelli transcribing")
             img?.isTemplate = true
             return img
         case .recording:
             let config = NSImage.SymbolConfiguration(paletteColors: [.systemRed])
-            let img = NSImage(systemSymbolName: "mic.fill", accessibilityDescription: "Murmur recording")?
+            let img = NSImage(systemSymbolName: "mic.fill", accessibilityDescription: "Votelli recording")?
                 .withSymbolConfiguration(config)
             img?.isTemplate = false
             return img

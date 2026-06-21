@@ -3,7 +3,7 @@ import AVFoundation
 
 /// A small preferences window: pick the push-to-talk key by clicking the button
 /// and pressing the key you want, toggle behavior options, and see/grant the
-/// three permissions Murmur needs.
+/// three permissions Votelli needs.
 final class PreferencesWindowController: NSObject, NSWindowDelegate {
     var onHotkeyChanged: ((Int) -> Void)?
     var onToggleLogin: ((Bool) -> Void)?
@@ -78,7 +78,7 @@ final class PreferencesWindowController: NSObject, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "Murmur Preferences"
+        window.title = "Votelli Preferences"
         window.contentView = content
         window.isReleasedWhenClosed = false
         window.delegate = self

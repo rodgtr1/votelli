@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build whisper.cpp as Metal-accelerated shared libraries for Murmur.
+# Build whisper.cpp as Metal-accelerated shared libraries for Votelli.
 # Outputs dylibs under third_party/whisper.cpp/build/ that the app bundles.
 set -euo pipefail
 

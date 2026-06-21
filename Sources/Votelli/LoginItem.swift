@@ -19,7 +19,7 @@ enum LoginItem {
                 try SMAppService.mainApp.unregister()
             }
         } catch {
-            NSLog("Murmur: login item toggle failed: \(error)")
+            NSLog("Votelli: login item toggle failed: \(error)")
         }
     }
 }

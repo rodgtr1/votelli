@@ -1,14 +1,14 @@
-#include "murmur_whisper.h"
+#include "votelli_whisper.h"
 #include "whisper.h"
 
 #include <stdlib.h>
 #include <string.h>
 
-struct murmur_ctx {
+struct votelli_ctx {
     struct whisper_context *wctx;
 };
 
-murmur_ctx *murmur_whisper_init(const char *model_path, int use_gpu) {
+votelli_ctx *votelli_whisper_init(const char *model_path, int use_gpu) {
     struct whisper_context_params cparams = whisper_context_default_params();
     cparams.use_gpu = use_gpu ? true : false;
     cparams.flash_attn = true;
@@ -19,7 +19,7 @@ murmur_ctx *murmur_whisper_init(const char *model_path, int use_gpu) {
         return NULL;
     }
 
-    murmur_ctx *ctx = (murmur_ctx *)calloc(1, sizeof(murmur_ctx));
+    votelli_ctx *ctx = (votelli_ctx *)calloc(1, sizeof(votelli_ctx));
     if (!ctx) {
         whisper_free(wctx);
         return NULL;
@@ -28,7 +28,7 @@ murmur_ctx *murmur_whisper_init(const char *model_path, int use_gpu) {
     return ctx;
 }
 
-char *murmur_whisper_transcribe(murmur_ctx *ctx,
+char *votelli_whisper_transcribe(votelli_ctx *ctx,
                                 const float *samples,
                                 int n_samples,
                                 int n_threads) {
@@ -81,11 +81,11 @@ char *murmur_whisper_transcribe(murmur_ctx *ctx,
     return out;
 }
 
-void murmur_whisper_free_string(char *s) {
+void votelli_whisper_free_string(char *s) {
     free(s);
 }
 
-void murmur_whisper_free(murmur_ctx *ctx) {
+void votelli_whisper_free(votelli_ctx *ctx) {
     if (!ctx) {
         return;
     }

@@ -1,16 +1,16 @@
 import Foundation
 
 /// Verbose diagnostics (per-keystroke events, transcription text) are only written
-/// when MURMUR_DEBUG=1 is set in the environment.
-let murmurDebugEnabled = ProcessInfo.processInfo.environment["MURMUR_DEBUG"] == "1"
+/// when VOTELLI_DEBUG=1 is set in the environment.
+let votelliDebugEnabled = ProcessInfo.processInfo.environment["VOTELLI_DEBUG"] == "1"
 
-/// Appends a line to ~/Library/Logs/Murmur.log (and NSLog). Used for lifecycle
+/// Appends a line to ~/Library/Logs/Votelli.log (and NSLog). Used for lifecycle
 /// diagnostics since GUI apps launched via LaunchServices don't surface stderr.
 func mlog(_ message: String) {
-    NSLog("Murmur: \(message)")
+    NSLog("Votelli: \(message)")
     let line = "\(logTimestamp()) \(message)\n"
     let url = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent("Library/Logs/Murmur.log")
+        .appendingPathComponent("Library/Logs/Votelli.log")
     guard let data = line.data(using: .utf8) else { return }
     if let handle = try? FileHandle(forWritingTo: url) {
         defer { try? handle.close() }
@@ -21,9 +21,9 @@ func mlog(_ message: String) {
     }
 }
 
-/// Like `mlog`, but only when MURMUR_DEBUG=1. Use for noisy or sensitive output.
+/// Like `mlog`, but only when VOTELLI_DEBUG=1. Use for noisy or sensitive output.
 func mdebug(_ message: @autoclosure () -> String) {
-    guard murmurDebugEnabled else { return }
+    guard votelliDebugEnabled else { return }
     mlog(message())
 }
 

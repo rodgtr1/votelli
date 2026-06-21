@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Assemble Murmur.app from the SwiftPM build output, bundling whisper dylibs
+# Assemble Votelli.app from the SwiftPM build output, bundling whisper dylibs
 # and the model, then ad-hoc code sign it.
 set -euo pipefail
 
@@ -7,7 +7,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 CONFIG="${CONFIG:-release}"
-APP="Murmur.app"
+APP="Votelli.app"
 CONTENTS="$APP/Contents"
 MACOS="$CONTENTS/MacOS"
 RES="$CONTENTS/Resources"
@@ -26,13 +26,13 @@ fi
 
 echo "==> swift build ($CONFIG)"
 swift build -c "$CONFIG"
-BIN="$(swift build -c "$CONFIG" --show-bin-path)/Murmur"
+BIN="$(swift build -c "$CONFIG" --show-bin-path)/Votelli"
 
 echo "==> assembling $APP"
 rm -rf "$APP"
 mkdir -p "$MACOS" "$RES" "$FRAMEWORKS"
 
-cp "$BIN" "$MACOS/Murmur"
+cp "$BIN" "$MACOS/Votelli"
 cp Resources/Info.plist "$CONTENTS/Info.plist"
 cp "$MODEL" "$RES/"
 
@@ -41,7 +41,7 @@ cp -a "$WHISPER_BIN"/libwhisper*.dylib "$FRAMEWORKS/"
 cp -a "$WHISPER_BIN"/libggml*.dylib "$FRAMEWORKS/"
 
 # Point the executable at the bundled frameworks.
-install_name_tool -add_rpath "@executable_path/../Frameworks" "$MACOS/Murmur" 2>/dev/null || true
+install_name_tool -add_rpath "@executable_path/../Frameworks" "$MACOS/Votelli" 2>/dev/null || true
 
 # Make the bundled dylibs self-contained: drop the absolute build-dir rpath that
 # CMake baked in, and let each dylib resolve its @rpath siblings via @loader_path.
@@ -54,9 +54,9 @@ done
 
 # Prefer the stable self-signed identity (keeps TCC permissions across rebuilds);
 # fall back to ad-hoc if it hasn't been set up.
-if security find-identity -p codesigning ~/Library/Keychains/murmur-dev.keychain-db 2>/dev/null | grep -q "Murmur Dev"; then
-    SIGN_ID="Murmur Dev"
-    echo "==> code signing (Murmur Dev)"
+if security find-identity -p codesigning ~/Library/Keychains/votelli-dev.keychain-db 2>/dev/null | grep -q "Votelli Dev"; then
+    SIGN_ID="Votelli Dev"
+    echo "==> code signing (Votelli Dev)"
 else
     SIGN_ID="-"
     echo "==> code signing (ad-hoc — run scripts/setup_signing.sh for stable identity)"
@@ -66,6 +66,6 @@ fi
 for dylib in "$FRAMEWORKS"/*.dylib; do
     codesign --force --sign "$SIGN_ID" --timestamp=none "$dylib" >/dev/null 2>&1 || true
 done
-codesign --force --sign "$SIGN_ID" --entitlements Resources/Murmur.entitlements "$APP"
+codesign --force --sign "$SIGN_ID" --entitlements Resources/Votelli.entitlements "$APP"
 
 echo "==> done: $ROOT/$APP"

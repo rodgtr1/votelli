@@ -3,13 +3,13 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>Murmur</string>
+    <string>Votelli</string>
     <key>CFBundleDisplayName</key>
-    <string>Murmur</string>
+    <string>Votelli</string>
     <key>CFBundleIdentifier</key>
-    <string>media.travis.murmur</string>
+    <string>media.travis.votelli</string>
     <key>CFBundleExecutable</key>
-    <string>Murmur</string>
+    <string>Votelli</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
@@ -21,8 +21,8 @@
     <key>LSUIElement</key>
     <true/>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Murmur listens while you hold the push-to-talk key and types what you say.</string>
+    <string>Votelli listens while you hold the push-to-talk key and types what you say.</string>
     <key>NSHumanReadableCopyright</key>
-    <string>Murmur</string>
+    <string>Votelli</string>
 </dict>
 </plist>

@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "Murmur",
+    name: "Votelli",
     platforms: [
         .macOS(.v13)
     ],
@@ -16,10 +16,10 @@ let package = Package(
             ]
         ),
         // Pure text logic, kept separate so it's unit-testable without linking whisper.
-        .target(name: "MurmurText"),
+        .target(name: "VotelliText"),
         .executableTarget(
-            name: "Murmur",
-            dependencies: ["CWhisper", "MurmurText"],
+            name: "Votelli",
+            dependencies: ["CWhisper", "VotelliText"],
             swiftSettings: [
                 .swiftLanguageMode(.v5)
             ],
@@ -31,8 +31,8 @@ let package = Package(
             ]
         ),
         .testTarget(
-            name: "MurmurTests",
-            dependencies: ["MurmurText"]
+            name: "VotelliTests",
+            dependencies: ["VotelliText"]
         )
     ]
 )

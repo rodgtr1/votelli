@@ -4,7 +4,7 @@
 *.xcodeproj
 
 # Built app bundle
-Murmur.app/
+*.app/
 
 # whisper.cpp build output
 third_party/whisper.cpp/build/

@@ -1,7 +1,7 @@
 .PHONY: all whisper model build app run clean dev-reset
 
-APP := Murmur.app
-BIN := $(APP)/Contents/MacOS/Murmur
+APP := Votelli.app
+BIN := $(APP)/Contents/MacOS/Votelli
 
 all: app
 
@@ -23,7 +23,7 @@ model:
 build:
 	swift build -c release
 
-# Assemble and sign Murmur.app (builds whisper + model if missing).
+# Assemble and sign Votelli.app (builds whisper + model if missing).
 app: $(if $(wildcard third_party/whisper.cpp/build/bin/libwhisper.dylib),,whisper) model
 	bash scripts/bundle.sh
 
@@ -33,7 +33,7 @@ run: app
 
 # Stream the running app's logs (NSLog + whisper stderr go to the unified log).
 logs:
-	log stream --level debug --predicate 'process == "Murmur"'
+	log stream --level debug --predicate 'process == "Votelli"'
 
 # Build a drag-to-Applications DMG (self-signed; see scripts/make_dmg.sh notes).
 dmg: app
@@ -42,16 +42,16 @@ dmg: app
 # Install to /Applications and (re)launch from there. The signed bundle is
 # relocatable, so copying preserves the signature and TCC grants.
 install: app
-	-pkill -x Murmur
-	rm -rf /Applications/Murmur.app
-	cp -R Murmur.app /Applications/Murmur.app
-	open /Applications/Murmur.app
-	@echo "installed and launched /Applications/Murmur.app"
+	-pkill -x Votelli
+	rm -rf /Applications/Votelli.app
+	cp -R Votelli.app /Applications/Votelli.app
+	open /Applications/Votelli.app
+	@echo "installed and launched /Applications/Votelli.app"
 
 # Remove TCC grants so permission prompts reappear (for testing first-run UX).
 dev-reset:
-	-tccutil reset Microphone media.travis.murmur
-	-tccutil reset Accessibility media.travis.murmur
+	-tccutil reset Microphone media.travis.votelli
+	-tccutil reset Accessibility media.travis.votelli
 
 clean:
 	rm -rf .build $(APP)
