@@ -1,0 +1,16 @@
+# Swift / SwiftPM
+.build/
+.swiftpm/
+*.xcodeproj
+
+# Built app bundle
+Murmur.app/
+
+# whisper.cpp build output
+third_party/whisper.cpp/build/
+
+# Bundled model (downloaded via `make model`)
+Resources/*.bin
+
+# macOS
+.DS_Store

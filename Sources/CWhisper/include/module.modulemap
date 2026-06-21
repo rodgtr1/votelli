@@ -1,0 +1,4 @@
+module CWhisper {
+    umbrella header "murmur_whisper.h"
+    export *
+}
