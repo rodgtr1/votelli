@@ -15,16 +15,36 @@ Lives in the menu bar (top right), not the Dock. No window, no fuss.
 - **Start at login** — optional, toggled from Preferences or the menu.
 - **Clipboard-safe** — types via synthesized key events, so your clipboard is untouched.
 
-## Requirements
+## Install
+
+**The easiest way — download the app, no developer tools needed:**
+
+1. Grab the latest **`Votelli-<version>.dmg`** from the
+   [Releases page](https://github.com/rodgtr1/votelli/releases/latest).
+2. Open it and drag **Votelli.app** into **Applications**.
+3. The app is self-signed (not notarized), so on first launch macOS shows an
+   "unidentified developer" warning. Either **right-click → Open**, or run:
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/Votelli.app
+   ```
+
+That's it — everything (Whisper model, Metal GPU shaders) is bundled. Requires an
+Apple Silicon Mac on macOS 13 or later. See [first-run permissions](#first-run-permissions) below.
+
+## Build from source
+
+> Most people don't need this — use the DMG above. Build from source only if you
+> want to modify Votelli or produce your own signed build.
+
+Requirements:
 
 - macOS 13 or later (Apple Silicon)
-- **Full Xcode** with the Metal toolchain (Command Line Tools alone is not enough):
+- **Full Xcode** with the Metal toolchain (Command Line Tools alone is not enough),
+  needed to compile the Metal GPU shaders at build time:
   ```
   xcodebuild -downloadComponent MetalToolchain
   ```
 - `cmake` (`brew install cmake`)
-
-## Build & run
 
 ```bash
 git clone --recurse-submodules <repo-url> votelli
