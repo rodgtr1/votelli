@@ -9,6 +9,9 @@ final class PreferencesWindowController: NSObject, NSWindowDelegate {
     var onToggleLogin: ((Bool) -> Void)?
 
     private var window: NSWindow!
+    private let inputDevicePopup = NSPopUpButton(frame: .zero, pullsDown: false)
+    /// Parallel to the popup's items: the device UID for each item (nil = system default).
+    private var inputDeviceUIDs: [String?] = []
     private let captureButton = NSButton(title: "", target: nil, action: nil)
     private let trailingSpaceCheckbox = NSButton(checkboxWithTitle: "Add a space after each dictation", target: nil, action: nil)
     private let loginCheckbox = NSButton(checkboxWithTitle: "Start at login", target: nil, action: nil)
@@ -31,7 +34,20 @@ final class PreferencesWindowController: NSObject, NSWindowDelegate {
     }
 
     private func buildWindow() {
-        let content = NSView(frame: NSRect(x: 0, y: 0, width: 400, height: 400))
+        let content = NSView(frame: NSRect(x: 0, y: 0, width: 400, height: 480))
+
+        let inputTitle = label("Microphone input", size: 13, bold: true, frame: NSRect(x: 24, y: 444, width: 352, height: 22))
+        content.addSubview(inputTitle)
+
+        inputDevicePopup.frame = NSRect(x: 22, y: 414, width: 356, height: 26)
+        inputDevicePopup.target = self
+        inputDevicePopup.action = #selector(selectInputDevice)
+        content.addSubview(inputDevicePopup)
+
+        let inputHint = label("Votelli always records from this device, even if macOS changes the system default.",
+                              size: 11, bold: false, frame: NSRect(x: 24, y: 392, width: 356, height: 18))
+        inputHint.textColor = .secondaryLabelColor
+        content.addSubview(inputHint)
 
         let title = label("Push-to-talk key", size: 13, bold: true, frame: NSRect(x: 24, y: 360, width: 352, height: 22))
         content.addSubview(title)
@@ -99,6 +115,7 @@ final class PreferencesWindowController: NSObject, NSWindowDelegate {
     }
 
     private func refresh() {
+        refreshInputDevices()
         captureButton.title = Keymap.name(for: Settings.shared.hotkeyKeyCode)
         trailingSpaceCheckbox.state = Settings.shared.addTrailingSpace ? .on : .off
         loginCheckbox.state = LoginItem.isEnabled ? .on : .off
@@ -150,6 +167,39 @@ final class PreferencesWindowController: NSObject, NSWindowDelegate {
             NSEvent.removeMonitor(monitor)
             self.monitor = nil
         }
+    }
+
+    /// Populate the device popup with "System Default" + each connected input
+    /// device, selecting the saved one. If the saved device is disconnected, it's
+    /// still shown (marked) so the choice is preserved.
+    private func refreshInputDevices() {
+        inputDevicePopup.removeAllItems()
+        inputDeviceUIDs = [nil]
+        inputDevicePopup.addItem(withTitle: "System Default")
+
+        let saved = Settings.shared.inputDeviceUID
+
+        for device in AudioDevices.inputDevices() {
+            inputDevicePopup.addItem(withTitle: device.name)
+            inputDeviceUIDs.append(device.uid)
+        }
+
+        if let saved = saved, let index = inputDeviceUIDs.firstIndex(of: saved) {
+            inputDevicePopup.selectItem(at: index)
+        } else if let saved = saved {
+            // Saved device isn't currently connected — keep the choice visible.
+            inputDevicePopup.addItem(withTitle: "Selected device (disconnected)")
+            inputDeviceUIDs.append(saved)
+            inputDevicePopup.selectItem(at: inputDevicePopup.numberOfItems - 1)
+        } else {
+            inputDevicePopup.selectItem(at: 0)
+        }
+    }
+
+    @objc private func selectInputDevice() {
+        let index = inputDevicePopup.indexOfSelectedItem
+        guard index >= 0, index < inputDeviceUIDs.count else { return }
+        Settings.shared.inputDeviceUID = inputDeviceUIDs[index]
     }
 
     @objc private func toggleTrailingSpace() {

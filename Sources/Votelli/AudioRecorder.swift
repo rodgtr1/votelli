@@ -1,4 +1,6 @@
 import AVFoundation
+import AudioToolbox
+import CoreAudio
 
 /// Captures microphone audio and resamples it to the 16kHz mono float format
 /// whisper expects. Accumulates samples while recording; `stop()` returns them.
@@ -27,6 +29,7 @@ final class AudioRecorder {
         lock.lock(); samples.removeAll(keepingCapacity: true); lock.unlock()
 
         let input = engine.inputNode
+        applyPreferredDevice(to: input)
         let inputFormat = input.inputFormat(forBus: 0)
         guard inputFormat.sampleRate > 0 else {
             NSLog("Votelli: no input format available (mic permission?)")
@@ -55,6 +58,30 @@ final class AudioRecorder {
         isRecording = false
         lock.lock(); let result = samples; lock.unlock()
         return result
+    }
+
+    /// Pin the engine's input to the user-chosen device so recording doesn't
+    /// follow the system default. No-op (uses default) if none is set or the
+    /// saved device is disconnected.
+    private func applyPreferredDevice(to input: AVAudioInputNode) {
+        guard let uid = Settings.shared.inputDeviceUID else { return }
+        guard let deviceID = AudioDevices.deviceID(forUID: uid) else {
+            mlog("pinned input device not connected (\(uid)); using system default")
+            return
+        }
+        guard let unit = input.audioUnit else { return }
+        var dev = deviceID
+        let status = AudioUnitSetProperty(
+            unit,
+            kAudioOutputUnitProperty_CurrentDevice,
+            kAudioUnitScope_Global,
+            0,
+            &dev,
+            UInt32(MemoryLayout<AudioDeviceID>.size)
+        )
+        if status != noErr {
+            mlog("failed to pin input device (status \(status)); using system default")
+        }
     }
 
     private func append(_ buffer: AVAudioPCMBuffer) {

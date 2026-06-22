@@ -10,6 +10,20 @@ final class Settings {
         static let hotkeyKeyCode = "hotkeyKeyCode"
         static let didPromptAccessibility = "didPromptAccessibility"
         static let addTrailingSpace = "addTrailingSpace"
+        static let inputDeviceUID = "inputDeviceUID"
+    }
+
+    /// UID of the microphone to record from. When set, Votelli always uses this
+    /// device instead of following the system default input. nil = system default.
+    var inputDeviceUID: String? {
+        get { defaults.string(forKey: Keys.inputDeviceUID) }
+        set {
+            if let newValue = newValue {
+                defaults.set(newValue, forKey: Keys.inputDeviceUID)
+            } else {
+                defaults.removeObject(forKey: Keys.inputDeviceUID)
+            }
+        }
     }
 
     /// Virtual keycode of the push-to-talk modifier. Default 61 = Right Option (⌥).

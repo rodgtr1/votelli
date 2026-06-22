@@ -101,6 +101,9 @@ defaults write media.travis.votelli hotkeyKeyCode -int 54   # 54 = Right Command
 
 - **Hotkey does nothing / waveform shows but no text** — Accessibility isn't granted to
   the current build. Open Preferences → Permissions, enable Accessibility, relaunch.
+- **Flat waveform / nothing transcribes** — Votelli is recording from a silent input
+  device. Open **Preferences → Microphone input** and pick the mic you actually speak
+  into. Votelli then sticks to that device even if macOS changes the system default.
 - **Permissions keep resetting** — stale TCC entries from older builds. Reset and re-grant once:
   ```bash
   tccutil reset Accessibility media.travis.votelli
@@ -118,6 +121,25 @@ xattr -dr com.apple.quarantine /Applications/Votelli.app
 ```
 
 The recommended path for others is to build from source (no warning).
+
+## Uninstall
+
+```bash
+# Quit and remove the app
+pkill -x Votelli
+rm -rf /Applications/Votelli.app
+
+# Remove its settings and logs
+defaults delete media.travis.votelli 2>/dev/null
+rm -f ~/Library/Preferences/media.travis.votelli.plist
+rm -f ~/Library/Logs/Votelli.log
+
+# Revoke the Mic / Input Monitoring / Accessibility grants (optional)
+tccutil reset All media.travis.votelli
+```
+
+If you'd enabled **Start at login**, removing the app unregisters it automatically; if
+a stale entry lingers, remove "Votelli" under System Settings → General → Login Items.
 
 ## License
 

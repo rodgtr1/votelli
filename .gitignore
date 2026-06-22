@@ -6,6 +6,9 @@
 # Built app bundle
 *.app/
 
+# Release artifacts
+*.dmg
+
 # whisper.cpp build output
 third_party/whisper.cpp/build/
 
