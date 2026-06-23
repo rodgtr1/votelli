@@ -20,6 +20,7 @@ final class PreferencesWindowController: NSObject, NSWindowDelegate {
     private let axStatus = NSTextField(labelWithString: "")
     private var monitor: Any?
     private var capturing = false
+    private var refreshTimer: Timer?
 
     override init() {
         super.init()
@@ -31,6 +32,22 @@ final class PreferencesWindowController: NSObject, NSWindowDelegate {
         NSApp.activate(ignoringOtherApps: true)
         window.center()
         window.makeKeyAndOrderFront(nil)
+        startLiveRefresh()
+    }
+
+    /// While the window is open, re-check permission status every second so the
+    /// ✅/❌ indicators flip live as the user grants them in System Settings —
+    /// they don't have to close and reopen the window to see progress.
+    private func startLiveRefresh() {
+        refreshTimer?.invalidate()
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            self?.refreshPermissionStatus()
+        }
+    }
+
+    private func stopLiveRefresh() {
+        refreshTimer?.invalidate()
+        refreshTimer = nil
     }
 
     private func buildWindow() {
@@ -116,10 +133,17 @@ final class PreferencesWindowController: NSObject, NSWindowDelegate {
 
     private func refresh() {
         refreshInputDevices()
-        captureButton.title = Keymap.name(for: Settings.shared.hotkeyKeyCode)
+        // Don't stomp the "Press a modifier key…" prompt while capturing.
+        if !capturing {
+            captureButton.title = Keymap.name(for: Settings.shared.hotkeyKeyCode)
+        }
         trailingSpaceCheckbox.state = Settings.shared.addTrailingSpace ? .on : .off
         loginCheckbox.state = LoginItem.isEnabled ? .on : .off
+        refreshPermissionStatus()
+    }
 
+    /// Just the live-updating permission indicators (cheap; safe to call on a timer).
+    private func refreshPermissionStatus() {
         let micOK = AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
         setStatus(micStatus, granted: micOK)
         setStatus(inputStatus, granted: Permissions.inputMonitoringEnabled())
@@ -216,9 +240,11 @@ final class PreferencesWindowController: NSObject, NSWindowDelegate {
 
     func windowDidBecomeKey(_ notification: Notification) {
         refresh()  // reflect any permission changes made in System Settings
+        startLiveRefresh()
     }
 
     func windowWillClose(_ notification: Notification) {
+        stopLiveRefresh()
         if capturing {
             endCapture()
             refresh()

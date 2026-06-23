@@ -14,6 +14,11 @@ final class AudioRecorder {
     private var samples: [Float] = []
     private let lock = NSLock()
     private(set) var isRecording = false
+    private var configObserver: NSObjectProtocol?
+
+    /// Reserve enough for a minute of 16kHz mono up front so the audio thread
+    /// doesn't reallocate `samples` mid-recording (allocation there can glitch).
+    private static let reservedSamples = 16_000 * 60
 
     init() {
         targetFormat = AVAudioFormat(
@@ -22,18 +27,40 @@ final class AudioRecorder {
             channels: 1,
             interleaved: false
         )!
+        // The engine stops when the active input device is added/removed; log it
+        // so a truncated clip has an explanation rather than failing silently.
+        configObserver = NotificationCenter.default.addObserver(
+            forName: .AVAudioEngineConfigurationChange,
+            object: engine,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self = self, self.isRecording else { return }
+            mlog("audio configuration changed mid-recording (input device added/removed)")
+        }
     }
 
-    func start() {
-        guard !isRecording else { return }
-        lock.lock(); samples.removeAll(keepingCapacity: true); lock.unlock()
+    deinit {
+        if let configObserver = configObserver {
+            NotificationCenter.default.removeObserver(configObserver)
+        }
+    }
+
+    /// Returns true once the engine is actually capturing. On false the caller
+    /// should not show a recording UI — nothing is being captured.
+    @discardableResult
+    func start() -> Bool {
+        guard !isRecording else { return true }
+        lock.lock()
+        samples.removeAll(keepingCapacity: true)
+        samples.reserveCapacity(Self.reservedSamples)
+        lock.unlock()
 
         let input = engine.inputNode
         applyPreferredDevice(to: input)
         let inputFormat = input.inputFormat(forBus: 0)
         guard inputFormat.sampleRate > 0 else {
-            NSLog("Votelli: no input format available (mic permission?)")
-            return
+            mlog("no input format available (mic permission or device?)")
+            return false
         }
         converter = AVAudioConverter(from: inputFormat, to: targetFormat)
 
@@ -45,9 +72,11 @@ final class AudioRecorder {
             engine.prepare()
             try engine.start()
             isRecording = true
+            return true
         } catch {
-            NSLog("Votelli: audio engine failed to start: \(error)")
+            mlog("audio engine failed to start: \(error)")
             input.removeTap(onBus: 0)
+            return false
         }
     }
 

@@ -32,8 +32,12 @@ git push origin main
 make dmg
 ```
 
-This builds the app, signs it as the local "Votelli Dev" identity, and produces
+This builds the app, signs it as the "Votelli Dev" identity, and produces
 `Votelli-<version>.dmg` (version taken from `Info.plist`).
+
+Unlike `make app`, the release build **refuses to fall back to ad-hoc signing**
+and **verifies the certificate leaf hash matches** `RELEASE_LEAF_HASH` in the
+Makefile. Both guards exist for one reason: see "Signing identity" below.
 
 ## 4. Publish the GitHub release
 
@@ -46,6 +50,47 @@ gh release create v0.3.0 Votelli-0.3.0.dmg \
 
 That one command creates the `v0.3.0` git tag, the release page, and uploads the
 DMG. The README links to `/releases/latest`, so the download link updates itself.
+
+## Signing identity (read this — it protects your users)
+
+Votelli isn't notarized, so macOS keys each user's permission grants (Microphone,
+Accessibility, Input Monitoring) to the **certificate leaf hash** of whatever
+signed the app, via its designated requirement:
+
+```
+identifier "media.travis.votelli" and certificate leaf = H"ed332f703e45f439c303671ca8766627fcd7bc7a"
+```
+
+As long as **every release is signed by the same "Votelli Dev" certificate**,
+users keep their permissions across updates. If the leaf hash ever changes, every
+existing user has to re-grant all three permissions after updating — a bad
+experience for a "just works" app.
+
+The cert lives only in `~/Library/Keychains/votelli-dev.keychain-db` on the build
+machine, and `scripts/setup_signing.sh` generates a **brand-new random cert** on
+any machine that doesn't already have it. So:
+
+- **Back up the identity now.** Export it and store the `.p12` somewhere safe
+  (password manager / encrypted backup), so you can sign releases from any machine
+  and never lose continuity:
+  ```bash
+  security unlock-keychain -p votelli-dev ~/Library/Keychains/votelli-dev.keychain-db
+  security export -k ~/Library/Keychains/votelli-dev.keychain-db \
+      -t identities -f pkcs12 -P votelli -o votelli-signing-identity.p12
+  ```
+- **Restore on a new machine** (instead of re-running `setup_signing.sh`, which
+  would make a different cert):
+  ```bash
+  security create-keychain -p votelli-dev ~/Library/Keychains/votelli-dev.keychain-db
+  security unlock-keychain -p votelli-dev ~/Library/Keychains/votelli-dev.keychain-db
+  security import votelli-signing-identity.p12 -k ~/Library/Keychains/votelli-dev.keychain-db \
+      -P votelli -T /usr/bin/codesign
+  security list-keychains -d user -s ~/Library/Keychains/votelli-dev.keychain-db \
+      $(security list-keychains -d user | sed -e 's/^ *//' -e 's/"//g')
+  ```
+- **If you ever deliberately rotate the cert**, update `RELEASE_LEAF_HASH` in the
+  Makefile to the new leaf hash (find it with `codesign -d -r- Votelli.app`) and
+  warn users that this one update will reset their permissions.
 
 ## Gotchas
 

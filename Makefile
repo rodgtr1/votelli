@@ -35,8 +35,17 @@ run: app
 logs:
 	log stream --level debug --predicate 'process == "Votelli"'
 
-# Build a drag-to-Applications DMG (self-signed; see scripts/make_dmg.sh notes).
-dmg: app
+# The leaf hash of the "Votelli Dev" certificate that signs every public release.
+# TCC keys users' permission grants to this; it MUST NOT change between releases.
+# If you ever deliberately rotate the signing identity, update this value (and
+# accept that existing users will have to re-grant permissions once).
+RELEASE_LEAF_HASH := ed332f703e45f439c303671ca8766627fcd7bc7a
+
+# Build a drag-to-Applications DMG for public release. Forces the stable signing
+# identity (no silent ad-hoc fallback) and verifies the leaf hash is unchanged,
+# so updates don't reset users' permissions. See scripts/make_dmg.sh notes.
+dmg:
+	REQUIRE_STABLE_IDENTITY=1 EXPECTED_LEAF_HASH=$(RELEASE_LEAF_HASH) $(MAKE) app
 	bash scripts/make_dmg.sh
 
 # Install to /Applications and (re)launch from there. The signed bundle is

@@ -47,6 +47,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mlog("launch: mic=\(AVCaptureDevice.authorizationStatus(for: .audio).rawValue) inputMonitoring=\(Permissions.inputMonitoringEnabled()) accessibility=\(Permissions.accessibilityEnabled(prompt: false))")
         requestMissingPermissions()
         startHotkey()
+
+        // First-run onboarding: if any of the three required permissions is still
+        // missing, open Preferences so the user sees exactly what's needed with
+        // live status and "Open…" buttons. The system permission dialogs are easy
+        // to miss (especially Accessibility, which never shows a reliable prompt),
+        // so this is the dependable path. It stops appearing once all are granted.
+        if !allPermissionsGranted {
+            preferences.show()
+        }
+    }
+
+    /// All three permissions Votelli needs to function end-to-end.
+    private var allPermissionsGranted: Bool {
+        AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
+            && Permissions.inputMonitoringEnabled()
+            && Permissions.accessibilityEnabled(prompt: false)
     }
 
     /// Only prompt for permissions that aren't already granted.
@@ -102,10 +118,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func startRecording() {
         guard state == .idle else { return }
+        // Only show the recording UI if the engine actually starts capturing,
+        // so we never display a red mic with no audio behind it.
+        guard recorder.start() else {
+            mlog("recording did not start (no microphone or permission?)")
+            if AVCaptureDevice.authorizationStatus(for: .audio) != .authorized {
+                preferences.show()
+            }
+            return
+        }
         state = .recording
         status.setState(.recording)
         indicator.show()
-        recorder.start()
     }
 
     private func stopRecording() {
