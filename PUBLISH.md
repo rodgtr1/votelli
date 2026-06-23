@@ -72,18 +72,20 @@ any machine that doesn't already have it. So:
 
 - **Back up the identity now.** Export it and store the `.p12` somewhere safe
   (password manager / encrypted backup), so you can sign releases from any machine
-  and never lose continuity:
+  and never lose continuity. Export *outside* the repo so it can't be committed —
+  the exported `.p12` is your private signing key, the one secret that actually
+  matters here (the `votelli` export password is weak; keep the file protected):
   ```bash
   security unlock-keychain -p votelli-dev ~/Library/Keychains/votelli-dev.keychain-db
   security export -k ~/Library/Keychains/votelli-dev.keychain-db \
-      -t identities -f pkcs12 -P votelli -o votelli-signing-identity.p12
+      -t identities -f pkcs12 -P votelli -o ~/votelli-signing-identity.p12
   ```
 - **Restore on a new machine** (instead of re-running `setup_signing.sh`, which
   would make a different cert):
   ```bash
   security create-keychain -p votelli-dev ~/Library/Keychains/votelli-dev.keychain-db
   security unlock-keychain -p votelli-dev ~/Library/Keychains/votelli-dev.keychain-db
-  security import votelli-signing-identity.p12 -k ~/Library/Keychains/votelli-dev.keychain-db \
+  security import ~/votelli-signing-identity.p12 -k ~/Library/Keychains/votelli-dev.keychain-db \
       -P votelli -T /usr/bin/codesign
   security list-keychains -d user -s ~/Library/Keychains/votelli-dev.keychain-db \
       $(security list-keychains -d user | sed -e 's/^ *//' -e 's/"//g')

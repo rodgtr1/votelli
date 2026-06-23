@@ -15,5 +15,14 @@ third_party/whisper.cpp/build/
 # Bundled model (downloaded via `make model`)
 Resources/*.bin
 
+# Code-signing key material — never commit these
+*.p12
+*.pem
+*.key
+*.cer
+*.pfx
+*.keychain
+*.keychain-db
+
 # macOS
 .DS_Store
