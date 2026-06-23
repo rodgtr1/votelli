@@ -17,19 +17,28 @@ Lives in the menu bar (top right), not the Dock. No window, no fuss.
 
 ## Install
 
-**The easiest way — download the app, no developer tools needed:**
+Download, drag, approve once — no developer tools needed.
 
-1. Grab the latest **`Votelli-<version>.dmg`** from the
+1. Download the latest **`Votelli-<version>.dmg`** from the
    [Releases page](https://github.com/rodgtr1/votelli/releases/latest).
-2. Open it and drag **Votelli.app** into **Applications**.
-3. The app is self-signed (not notarized), so on first launch macOS shows an
-   "unidentified developer" warning. Either **right-click → Open**, or run:
-   ```bash
-   xattr -dr com.apple.quarantine /Applications/Votelli.app
-   ```
+2. Open the DMG and drag **Votelli.app** into your **Applications** folder.
+3. Double-click **Votelli**. Because it's self-signed (not notarized), macOS shows
+   *"Apple could not verify 'Votelli' is free of malware…"* — click **Done**.
+4. Open **System Settings → Privacy & Security** and scroll down to the **Security**
+   section. You'll see *"Votelli was blocked to protect your Mac."* Click
+   **Open Anyway**, then confirm.
+5. Votelli launches and walks you through the permissions it needs — it opens its
+   own Preferences window showing the live status of each:
+   - **Microphone** — click **Allow** on the popup.
+   - **Input Monitoring** — when prompted, open System Settings and toggle
+     **Votelli** on.
+   - **Accessibility** — go to **Privacy & Security → Accessibility** and toggle
+     **Votelli** on.
+6. Look for the **microphone icon** in the menu bar (top-right). Open **Preferences**
+   to pick your microphone input. All set.
 
-That's it — everything (Whisper model, Metal GPU shaders) is bundled. Requires an
-Apple Silicon Mac on macOS 13 or later. See [first-run permissions](#first-run-permissions) below.
+Everything (Whisper model, Metal GPU shaders) is bundled. Requires an Apple Silicon
+Mac on macOS 13 or later. More on the [permissions](#first-run-permissions) below.
 
 ## Build from source
 
@@ -72,9 +81,10 @@ macOS can't pre-grant these — you approve each one. On first launch Votelli as
 | **Input Monitoring** | to detect the held push-to-talk key |
 | **Accessibility** | to type the transcribed text into other apps |
 
-Preferences has a **Permissions** panel showing the status of each with a button to
-open the matching System Settings pane. After granting Accessibility, relaunch once
-(`pkill -x Votelli; open /Applications/Votelli.app`).
+On first launch Votelli opens its **Preferences** window, whose **Permissions** panel
+shows the live status of each (✅/❌, updating as you grant them) with a button to open
+the matching System Settings pane. If typing doesn't work right after granting
+Accessibility, relaunch once (`pkill -x Votelli; open /Applications/Votelli.app`).
 
 ## Usage
 
@@ -134,13 +144,15 @@ defaults write media.travis.votelli hotkeyKeyCode -int 54   # 54 = Right Command
 ## Distributing a prebuilt DMG
 
 `make dmg` produces `Votelli-<version>.dmg`. Because the app is self-signed (not
-notarized), anyone who **downloads** it must right-click → Open on first launch, or run:
+notarized), anyone who **downloads** it has to clear Gatekeeper once — see the
+[Install](#install) steps (System Settings → Privacy & Security → **Open Anyway**).
+The equivalent from the terminal is:
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/Votelli.app
 ```
 
-The recommended path for others is to build from source (no warning).
+Building from source avoids the warning entirely.
 
 ## Uninstall
 
