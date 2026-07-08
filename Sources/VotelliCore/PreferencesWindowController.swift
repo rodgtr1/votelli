@@ -98,8 +98,11 @@ final class PreferencesWindowController: NSObject, NSWindowDelegate {
         content.addSubview(saveHistoryCheckbox)
 
         let historyHint = label("Off by default. Your dictation is sensitive — when on it's stored as plain text on your Mac.",
-                                size: 11, bold: false, frame: NSRect(x: 40, y: 270, width: 340, height: 18))
+                                size: 11, bold: false, frame: NSRect(x: 40, y: 258, width: 340, height: 30))
         historyHint.textColor = .secondaryLabelColor
+        historyHint.lineBreakMode = .byWordWrapping
+        historyHint.usesSingleLineMode = false
+        historyHint.cell?.wraps = true
         content.addSubview(historyHint)
 
         let permTitle = label("Permissions", size: 13, bold: true, frame: NSRect(x: 24, y: 196, width: 352, height: 22))
