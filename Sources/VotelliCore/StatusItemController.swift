@@ -19,8 +19,12 @@ final class StatusItemController {
     /// Called with the full (untruncated) text of a clicked Recent entry.
     var onCopyHistoryEntry: ((String) -> Void)?
     var onClearHistory: (() -> Void)?
+    /// Invoked by the "History…" item, which only exists once
+    /// `enableHistoryWindowItem()` has been called (a Pro build's history window).
+    var onOpenHistory: (() -> Void)?
 
     private let statusItem: NSStatusItem
+    private let menu = NSMenu()
     private let stateItem = NSMenuItem(title: "Ready", action: nil, keyEquivalent: "")
     private let hintItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let recentItem = NSMenuItem(title: "Recent", action: nil, keyEquivalent: "")
@@ -36,7 +40,6 @@ final class StatusItemController {
     }
 
     private func buildMenu() {
-        let menu = NSMenu()
         // Manual enabling: Clear History toggles with history state, and auto-enable
         // would override the isEnabled we set on it.
         menu.autoenablesItems = false
@@ -115,6 +118,17 @@ final class StatusItemController {
         return String(collapsed.prefix(limit)).trimmingCharacters(in: .whitespaces) + "…"
     }
 
+    /// Insert a "History…" item (opening a Pro history window) right after the
+    /// Recent submenu. Only called when the history-window extension is present, so
+    /// the free menu never shows it. Invokes `onOpenHistory`.
+    func enableHistoryWindowItem() {
+        guard menu.items.contains(recentItem) else { return }
+        let historyItem = NSMenuItem(title: "History…", action: #selector(openHistory), keyEquivalent: "")
+        historyItem.target = self
+        let index = menu.index(of: recentItem) + 1
+        menu.insertItem(historyItem, at: index)
+    }
+
     func setLoginChecked(_ on: Bool) {
         loginItem.state = on ? .on : .off
     }
@@ -160,6 +174,10 @@ final class StatusItemController {
 
     @objc private func clearHistory() {
         onClearHistory?()
+    }
+
+    @objc private func openHistory() {
+        onOpenHistory?()
     }
 
     @objc private func quit() {

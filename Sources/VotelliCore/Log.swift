@@ -24,7 +24,7 @@ private let logFormatter: DateFormatter = {
 
 /// Appends a line to ~/Library/Logs/Votelli.log (and NSLog). Used for lifecycle
 /// diagnostics since GUI apps launched via LaunchServices don't surface stderr.
-func mlog(_ message: String) {
+public func mlog(_ message: String) {
     NSLog("Votelli: \(message)")
     let now = Date()
     logQueue.async {
@@ -42,7 +42,7 @@ func mlog(_ message: String) {
 }
 
 /// Like `mlog`, but only when VOTELLI_DEBUG=1. Use for noisy or sensitive output.
-func mdebug(_ message: @autoclosure () -> String) {
+public func mdebug(_ message: @autoclosure () -> String) {
     guard votelliDebugEnabled else { return }
     mlog(message())
 }

@@ -1,9 +1,14 @@
-import Foundation
+import AppKit
 
 /// One delivered transcription, kept so the user can recover recent dictation.
-struct HistoryEntry: Codable {
-    let text: String
-    let date: Date
+public struct HistoryEntry: Codable {
+    public let text: String
+    public let date: Date
+
+    public init(text: String, date: Date) {
+        self.text = text
+        self.date = date
+    }
 }
 
 /// In-memory ring buffer of recent transcriptions — the final data-loss backstop.
@@ -15,12 +20,16 @@ struct HistoryEntry: Codable {
 /// sensitive; when enabled it's written as plain JSON with 0600 permissions.
 ///
 /// All access is confined to the main thread; only the disk I/O hops to `ioQueue`.
-final class TranscriptionHistory {
+final class TranscriptionHistory: HistoryReading {
     /// Keep at most this many entries; oldest drop off the front.
     private static let capacity = 50
 
     /// Newest last.
-    private var entries: [HistoryEntry] = []
+    private var _entries: [HistoryEntry] = []
+
+    /// Handlers fired on the main thread whenever the entries change, so a Pro
+    /// history window can refresh live. Registered via `addChangeObserver`.
+    private var changeObservers: [() -> Void] = []
 
     /// Serializes file reads/writes so overlapping saves can't corrupt the file.
     private let ioQueue = DispatchQueue(label: "media.travis.votelli.history")
@@ -43,8 +52,9 @@ final class TranscriptionHistory {
             }
             DispatchQueue.main.async {
                 // Prepend loaded entries so anything recorded during launch stays newest.
-                self.entries = (loaded + self.entries).suffix(Self.capacity).map { $0 }
+                self._entries = (loaded + self._entries).suffix(Self.capacity).map { $0 }
                 mlog("history: loaded \(loaded.count) entr\(loaded.count == 1 ? "y" : "ies") from disk")
+                self.notifyChange()
                 completion()
             }
         }
@@ -52,23 +62,44 @@ final class TranscriptionHistory {
 
     /// Record a delivered transcript. Trims to `capacity` and persists if enabled.
     func record(_ text: String, date: Date) {
-        entries.append(HistoryEntry(text: text, date: date))
-        if entries.count > Self.capacity {
-            entries.removeFirst(entries.count - Self.capacity)
+        _entries.append(HistoryEntry(text: text, date: date))
+        if _entries.count > Self.capacity {
+            _entries.removeFirst(_entries.count - Self.capacity)
         }
         persistIfEnabled()
+        notifyChange()
     }
 
     /// The `n` most recent transcriptions, newest first.
     func recent(_ n: Int) -> [HistoryEntry] {
-        Array(entries.suffix(n).reversed())
+        Array(_entries.suffix(n).reversed())
     }
 
     /// Empty the buffer and remove any persisted file.
     func clear() {
-        entries.removeAll()
+        _entries.removeAll()
         deleteFile()
         mlog("history: cleared")
+        notifyChange()
+    }
+
+    // MARK: - HistoryReading
+
+    /// All retained entries, newest last. Exposed to a Pro history window.
+    var entries: [HistoryEntry] { _entries }
+
+    func copyToClipboard(_ text: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        mlog("history: copied \(text.count) chars to clipboard")
+    }
+
+    func addChangeObserver(_ handler: @escaping () -> Void) {
+        changeObservers.append(handler)
+    }
+
+    private func notifyChange() {
+        for observer in changeObservers { observer() }
     }
 
     /// React to the "Save history to disk" setting changing. When turned on, write
@@ -87,7 +118,7 @@ final class TranscriptionHistory {
 
     private func persistIfEnabled() {
         guard Settings.shared.saveHistoryToDisk else { return }
-        let snapshot = entries
+        let snapshot = _entries
         ioQueue.async {
             do {
                 try FileManager.default.createDirectory(

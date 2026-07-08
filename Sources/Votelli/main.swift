@@ -1,8 +1,6 @@
-import AppKit
+import VotelliCore
 
-// Votelli runs as a menu-bar-only accessory: no Dock icon, no main window.
-let app = NSApplication.shared
-let delegate = AppDelegate()
-app.delegate = delegate
-app.setActivationPolicy(.accessory)
-app.run()
+// The free app is pure bootstrap: no extensions registered, so EngineRegistry
+// holds only the built-in base.en engine and the Pro extension points stay empty.
+// A Pro build performs its registration here before calling VotelliMain().
+VotelliMain()

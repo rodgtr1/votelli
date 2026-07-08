@@ -1,8 +1,11 @@
 import Foundation
 
 /// Persistent, user-overridable settings backed by UserDefaults.
-final class Settings {
-    static let shared = Settings()
+///
+/// Public so a downstream Pro build can read/write the settings it shares with the
+/// core (currently `selectedEngineID`). Most properties remain internal.
+public final class Settings {
+    public static let shared = Settings()
 
     private let defaults = UserDefaults.standard
 
@@ -12,6 +15,19 @@ final class Settings {
         static let addTrailingSpace = "addTrailingSpace"
         static let inputDeviceUID = "inputDeviceUID"
         static let saveHistoryToDisk = "saveHistoryToDisk"
+        static let selectedEngineID = "selectedEngineID"
+    }
+
+    /// The default engine id every build ships with.
+    public static let defaultEngineID = "base.en"
+
+    /// Id of the transcription engine to load, matched against `EngineRegistry`.
+    /// Defaults to the built-in base.en engine, so a free build always resolves it.
+    /// A Pro build's engine picker writes this and then calls
+    /// `AppExtensionPoints.shared.reloadEngine`.
+    public var selectedEngineID: String {
+        get { defaults.string(forKey: Keys.selectedEngineID) ?? Self.defaultEngineID }
+        set { defaults.set(newValue, forKey: Keys.selectedEngineID) }
     }
 
     /// UID of the microphone to record from. When set, Votelli always uses this

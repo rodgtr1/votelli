@@ -117,6 +117,17 @@ final class PreferencesWindowController: NSObject, NSWindowDelegate {
         footer.textColor = .secondaryLabelColor
         content.addSubview(footer)
 
+        // A Pro build contributes a preferences section (model download, engine
+        // picker) via this hook. The button only appears when that hook is set, so
+        // the free window is unchanged.
+        if AppExtensionPoints.shared.openProPreferences != nil {
+            let proButton = NSButton(title: AppExtensionPoints.shared.preferencesButtonTitle,
+                                     target: self, action: #selector(openProPreferences))
+            proButton.bezelStyle = .rounded
+            proButton.frame = NSRect(x: 24, y: 14, width: 352, height: 30)
+            content.addSubview(proButton)
+        }
+
         window = NSWindow(
             contentRect: content.frame,
             styleMask: [.titled, .closable],
@@ -252,6 +263,8 @@ final class PreferencesWindowController: NSObject, NSWindowDelegate {
     @objc private func toggleLogin() {
         onToggleLogin?(loginCheckbox.state == .on)
     }
+
+    @objc private func openProPreferences() { AppExtensionPoints.shared.openProPreferences?() }
 
     @objc private func openMic() { Permissions.openMicrophoneSettings() }
     @objc private func openInput() { Permissions.openInputMonitoringSettings() }

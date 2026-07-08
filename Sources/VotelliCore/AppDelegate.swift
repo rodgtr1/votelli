@@ -8,7 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let recorder = AudioRecorder()
     private let indicator = RecordingIndicator()
     private let preferences = PreferencesWindowController()
-    private var transcriber: Transcriber?
+    private var engine: TranscriptionEngine?
     private let history = TranscriptionHistory()
     private let workQueue = DispatchQueue(label: "media.travis.votelli.transcribe", qos: .userInitiated)
 
@@ -61,6 +61,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         recorder.onLevel = { [weak self] level in self?.indicator.setLevel(level) }
         recorder.onConfigurationChange = { [weak self] resumed in
             self?.handleInputDeviceChange(resumed: resumed)
+        }
+
+        // Engines: register the built-in base.en, then let a Pro build's already-
+        // registered extras stand. Wire the hooks a Pro build fills in (history
+        // window, engine reload). All no-ops in the free build.
+        registerBuiltInEngines()
+        AppExtensionPoints.shared.reloadEngine = { [weak self] in self?.reloadEngine() }
+        if AppExtensionPoints.shared.openHistoryWindow != nil {
+            status.onOpenHistory = { [weak self] in
+                guard let self = self else { return }
+                AppExtensionPoints.shared.openHistoryWindow?(self.history)
+            }
+            status.enableHistoryWindowItem()
         }
 
         Notifier.requestAuthorization()
@@ -130,29 +143,71 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// Register the engines every build ships with. The free build ships one:
+    /// the bundled whisper base.en model. A Pro build registers additional engines
+    /// before `VotelliMain()`, so by the time this runs they already coexist.
+    private func registerBuiltInEngines() {
+        EngineRegistry.shared.register(
+            EngineDescriptor(
+                id: Settings.defaultEngineID,
+                displayName: "Base English (built-in)",
+                isAvailable: { Bundle.main.path(forResource: "ggml-base.en", ofType: "bin") != nil },
+                makeEngine: {
+                    guard let path = Bundle.main.path(forResource: "ggml-base.en", ofType: "bin") else {
+                        NSLog("Votelli: bundled model ggml-base.en.bin not found")
+                        return nil
+                    }
+                    return Transcriber(modelPath: path, useGPU: true)
+                }
+            )
+        )
+    }
+
+    /// Resolve the engine to load: the one selected in Settings if it's available,
+    /// otherwise the first available engine (so a Pro user whose selected model
+    /// isn't downloaded yet still gets the built-in base.en).
+    private func resolveEngineDescriptor() -> EngineDescriptor? {
+        let registry = EngineRegistry.shared
+        let selected = registry.descriptor(id: Settings.shared.selectedEngineID)
+        if let selected = selected, selected.isAvailable() { return selected }
+        if let selected = selected {
+            mlog("engine: selected '\(selected.id)' unavailable — falling back")
+        }
+        return registry.firstAvailable ?? registry.descriptor(id: Settings.defaultEngineID)
+    }
+
     private func loadModel() {
-        guard let path = Bundle.main.path(forResource: "ggml-base.en", ofType: "bin") else {
-            NSLog("Votelli: bundled model ggml-base.en.bin not found")
+        guard let descriptor = resolveEngineDescriptor() else {
+            NSLog("Votelli: no transcription engine available")
             return
         }
+        mlog("engine: loading '\(descriptor.id)'")
         workQueue.async { [weak self] in
-            let t = Transcriber(modelPath: path, useGPU: true)
-            if t == nil { NSLog("Votelli: failed to load whisper model") }
-            // Hand the model off on the main thread — `transcriber` and the pending
+            let e = descriptor.makeEngine()
+            if e == nil { NSLog("Votelli: failed to load engine '\(descriptor.id)'") }
+            // Hand the engine off on the main thread — `engine` and the pending
             // clip buffer are main-thread state — and flush anything captured while
             // it was loading.
             DispatchQueue.main.async {
-                self?.transcriber = t
+                self?.engine = e
                 self?.modelDidLoad()
             }
         }
+    }
+
+    /// Re-load the transcription engine after the selected engine changed (a Pro
+    /// build calls this via `AppExtensionPoints.reloadEngine`). Any in-flight clip
+    /// keeps using whatever engine was live when it started.
+    private func reloadEngine() {
+        engine = nil
+        loadModel()
     }
 
     /// The model finished loading (or failed). Transcribe anything buffered while
     /// it was warming up, unless the user is mid-recording — in that case the clip
     /// will flush when they release the key.
     private func modelDidLoad() {
-        guard transcriber != nil else {
+        guard engine != nil else {
             // Model failed to load: we can't turn the buffered audio into text.
             if !pendingClips.isEmpty {
                 pendingClips.removeAll()
@@ -213,7 +268,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Transcribe every buffered clip if the model is ready; otherwise show the
     /// warming-up state and keep them buffered until `modelDidLoad()`.
     private func flushPending() {
-        guard let transcriber = transcriber else {
+        guard let engine = engine else {
             mlog("model still loading — buffered \(pendingClips.count) clip(s), will transcribe when ready")
             state = .warmingUp
             status.setState(.warmingUp)
@@ -229,7 +284,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self = self else { return }
             defer { DispatchQueue.main.async { self.finishToIdle() } }
             for samples in clips {
-                guard let text = transcriber.transcribe(samples) else { mlog("transcribe returned nil"); continue }
+                guard let text = engine.transcribe(samples) else { mlog("transcribe returned nil"); continue }
                 var cleaned = TextProcessing.clean(text)
                 mlog("transcribed \(cleaned.count) chars from \(samples.count) samples")
                 mdebug("text: \"\(cleaned)\"")
