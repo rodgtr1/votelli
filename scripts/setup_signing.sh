@@ -36,7 +36,14 @@ openssl req -x509 -newkey rsa:2048 -nodes \
     -keyout "$TMP/key.pem" -out "$TMP/cert.pem" \
     -days 3650 -config "$TMP/cert.cnf" >/dev/null 2>&1
 
-openssl pkcs12 -export -inkey "$TMP/key.pem" -in "$TMP/cert.pem" \
+# OpenSSL 3.x defaults to AES/PBKDF2 for PKCS12, which `security import` can't
+# read ("MAC verification failed"). -legacy restores the old ciphers; LibreSSL
+# (macOS /usr/bin/openssl) lacks the flag but its default output imports fine.
+P12_LEGACY=""
+if openssl pkcs12 -help 2>&1 | grep -q -- "-legacy"; then
+    P12_LEGACY="-legacy"
+fi
+openssl pkcs12 -export $P12_LEGACY -inkey "$TMP/key.pem" -in "$TMP/cert.pem" \
     -out "$TMP/id.p12" -passout pass:votelli -name "$IDENTITY" >/dev/null 2>&1
 
 # Dedicated keychain with a known password keeps this fully non-interactive.
@@ -53,5 +60,11 @@ if ! echo "$EXISTING" | grep -q "$KC_NAME"; then
     security list-keychains -d user -s "$KC" $EXISTING
 fi
 
+# A self-signed cert is CSSMERR_TP_NOT_TRUSTED until it gets a user-domain
+# trust setting for Code Signing; codesign won't use it before this. Pops a
+# one-time macOS password dialog.
+echo "adding trust setting (macOS will ask for your password once)…"
+security add-trusted-cert -p codeSign "$TMP/cert.pem"
+
 echo "created signing identity '$IDENTITY'"
-security find-identity -v -p codesigning | grep "$IDENTITY" || true
+security find-identity -v -p codesigning "$KC" | grep "$IDENTITY" || true
