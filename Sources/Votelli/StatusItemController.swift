@@ -4,6 +4,9 @@ enum VotelliState {
     case idle
     case recording
     case transcribing
+    /// Speech was captured before the whisper model finished loading; it's
+    /// buffered and will transcribe as soon as the model is ready.
+    case warmingUp
 }
 
 /// Owns the menu bar item, its icon, and its dropdown menu.
@@ -76,6 +79,7 @@ final class StatusItemController {
             case .idle: self.stateItem.title = "Ready"
             case .recording: self.stateItem.title = "Recording…"
             case .transcribing: self.stateItem.title = "Transcribing…"
+            case .warmingUp: self.stateItem.title = "Warming up… (will transcribe when ready)"
             }
         }
     }
@@ -110,6 +114,10 @@ final class StatusItemController {
             return img
         case .transcribing:
             let img = NSImage(systemSymbolName: "waveform", accessibilityDescription: "Votelli transcribing")
+            img?.isTemplate = true
+            return img
+        case .warmingUp:
+            let img = NSImage(systemSymbolName: "hourglass", accessibilityDescription: "Votelli warming up")
             img?.isTemplate = true
             return img
         case .recording:

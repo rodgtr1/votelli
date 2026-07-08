@@ -14,6 +14,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Mutated only on the main thread.
     private var state: VotelliState = .idle
 
+    /// Clips recorded before the whisper model finished loading. Buffered here and
+    /// transcribed once the model is ready, so early dictation isn't dropped.
+    /// Mutated only on the main thread.
+    private var pendingClips: [[Float]] = []
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         status = StatusItemController()
         status.setLoginChecked(LoginItem.isEnabled)
@@ -37,7 +42,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         recorder.onLevel = { [weak self] level in self?.indicator.setLevel(level) }
+        recorder.onConfigurationChange = { [weak self] resumed in
+            self?.handleInputDeviceChange(resumed: resumed)
+        }
 
+        Notifier.requestAuthorization()
         loadModel()
 
         hotkey = HotkeyMonitor(keyCode: Settings.shared.hotkeyKeyCode)
@@ -112,12 +121,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         workQueue.async { [weak self] in
             let t = Transcriber(modelPath: path, useGPU: true)
             if t == nil { NSLog("Votelli: failed to load whisper model") }
-            self?.transcriber = t
+            // Hand the model off on the main thread — `transcriber` and the pending
+            // clip buffer are main-thread state — and flush anything captured while
+            // it was loading.
+            DispatchQueue.main.async {
+                self?.transcriber = t
+                self?.modelDidLoad()
+            }
         }
     }
 
+    /// The model finished loading (or failed). Transcribe anything buffered while
+    /// it was warming up, unless the user is mid-recording — in that case the clip
+    /// will flush when they release the key.
+    private func modelDidLoad() {
+        guard transcriber != nil else {
+            // Model failed to load: we can't turn the buffered audio into text.
+            if !pendingClips.isEmpty {
+                pendingClips.removeAll()
+                finishToIdle()
+                Notifier.notify(
+                    title: "Votelli couldn't start",
+                    body: "The speech model failed to load, so buffered dictation couldn't be transcribed."
+                )
+            }
+            return
+        }
+        guard state != .recording else { return }
+        flushPending()
+    }
+
     private func startRecording() {
-        guard state == .idle else { return }
+        // Allow starting from idle, or while warming up (so speech during model
+        // load keeps buffering instead of being refused).
+        guard state == .idle || state == .warmingUp else { return }
         // Only show the recording UI if the engine actually starts capturing,
         // so we never display a red mic with no audio behind it.
         guard recorder.start() else {
@@ -136,32 +173,90 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard state == .recording else { return }
         let samples = recorder.stop()
         indicator.hide()
+
+        // Ignore clips shorter than ~0.1s (accidental taps).
+        guard samples.count > 1_600 else {
+            mdebug("clip too short (\(samples.count) samples)")
+            finishToIdle()
+            return
+        }
+
+        // Silence gate: whisper hallucinates phrases like "Thank you." on
+        // near-silent audio, so drop clips that never got loud enough to be speech.
+        guard !recorder.lastClipWasSilent else {
+            mlog("clip below loudness threshold (peakRMS \(recorder.peakRMS)); skipping as silence")
+            finishToIdle()
+            return
+        }
+
+        pendingClips.append(samples)
+        flushPending()
+    }
+
+    /// Transcribe every buffered clip if the model is ready; otherwise show the
+    /// warming-up state and keep them buffered until `modelDidLoad()`.
+    private func flushPending() {
+        guard let transcriber = transcriber else {
+            mlog("model still loading — buffered \(pendingClips.count) clip(s), will transcribe when ready")
+            state = .warmingUp
+            status.setState(.warmingUp)
+            return
+        }
+        let clips = pendingClips
+        pendingClips.removeAll()
+        guard !clips.isEmpty else { finishToIdle(); return }
+
         state = .transcribing
         status.setState(.transcribing)
-
         workQueue.async { [weak self] in
             guard let self = self else { return }
-            defer {
-                DispatchQueue.main.async {
-                    self.state = .idle
-                    self.status.setState(.idle)
-                }
+            defer { DispatchQueue.main.async { self.finishToIdle() } }
+            for samples in clips {
+                guard let text = transcriber.transcribe(samples) else { mlog("transcribe returned nil"); continue }
+                var cleaned = TextProcessing.clean(text)
+                mlog("transcribed \(cleaned.count) chars from \(samples.count) samples")
+                mdebug("text: \"\(cleaned)\"")
+                guard !cleaned.isEmpty else { continue }
+                if Settings.shared.addTrailingSpace { cleaned += " " }
+                DispatchQueue.main.async { self.deliver(cleaned) }
             }
+        }
+    }
 
-            // Ignore clips shorter than ~0.1s (accidental taps).
-            guard samples.count > 1_600 else { mdebug("clip too short (\(samples.count) samples)"); return }
-            guard let text = self.transcriber?.transcribe(samples) else { mlog("transcribe returned nil"); return }
-            var cleaned = TextProcessing.clean(text)
-            mlog("transcribed \(cleaned.count) chars from \(samples.count) samples")
-            mdebug("text: \"\(cleaned)\"")
-            guard !cleaned.isEmpty else { return }
-            if Settings.shared.addTrailingSpace { cleaned += " " }
+    /// Type the transcript into the focused app. If typing is blocked (no
+    /// Accessibility, or secure input active), copy it to the clipboard and notify
+    /// the user so the words are never lost.
+    private func deliver(_ text: String) {
+        mlog("typing \(text.count) chars")
+        if TextInjector.type(text) { return }
 
-            DispatchQueue.main.async {
-                let trusted = Permissions.accessibilityEnabled(prompt: false)
-                mlog("typing \(cleaned.count) chars (accessibility=\(trusted))")
-                TextInjector.type(cleaned)
-            }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        mlog("typing blocked; copied \(text.count) chars to clipboard")
+        Notifier.notify(
+            title: "Votelli couldn't type here",
+            body: "Your dictation was copied to the clipboard — press ⌘V to paste it."
+        )
+    }
+
+    private func finishToIdle() {
+        state = .idle
+        status.setState(.idle)
+    }
+
+    /// The input device changed mid-recording. AudioRecorder already rebuilt the
+    /// tap on the new device (or ended the clip if it couldn't); just tell the user.
+    private func handleInputDeviceChange(resumed: Bool) {
+        if resumed {
+            Notifier.notify(
+                title: "Microphone changed",
+                body: "Votelli switched to the new input device and kept recording."
+            )
+        } else {
+            Notifier.notify(
+                title: "Recording interrupted",
+                body: "The microphone changed and Votelli couldn't resume — please try again."
+            )
         }
     }
 }

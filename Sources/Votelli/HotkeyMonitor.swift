@@ -18,8 +18,15 @@ final class HotkeyMonitor {
     }
 
     func updateKeyCode(_ code: Int) {
+        // If the hotkey is swapped while the old key is still held, we'll never
+        // see that key's release (its keyCode no longer matches), so recording
+        // would latch on forever. Release now before switching.
+        if isDown {
+            isDown = false
+            mdebug("hotkey changed while held — firing release")
+            DispatchQueue.main.async { self.onRelease() }
+        }
         keyCode = code
-        isDown = false
     }
 
     @discardableResult

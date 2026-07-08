@@ -8,6 +8,11 @@ final class AudioRecorder {
     /// Called on the main thread with a normalized 0...1 loudness level per buffer.
     var onLevel: ((Float) -> Void)?
 
+    /// Called on the main thread when the input device changes mid-recording.
+    /// The Bool is true if capture resumed on the new device, false if the engine
+    /// couldn't restart and the clip ended early.
+    var onConfigurationChange: ((Bool) -> Void)?
+
     private let engine = AVAudioEngine()
     private let targetFormat: AVAudioFormat
     private var converter: AVAudioConverter?
@@ -15,6 +20,21 @@ final class AudioRecorder {
     private let lock = NSLock()
     private(set) var isRecording = false
     private var configObserver: NSObjectProtocol?
+    /// Guards against re-entrant restarts while we tear down and rebuild the tap.
+    private var isReconfiguring = false
+
+    /// Loudest per-buffer RMS seen during the current clip. Read after `stop()`
+    /// to decide whether the clip was silence.
+    private(set) var peakRMS: Float = 0
+
+    /// Clips whose loudest buffer never exceeds this raw RMS are treated as
+    /// silence and skipped — whisper otherwise hallucinates phrases like
+    /// "Thank you." on near-silent input. Deliberately low so real (even quiet)
+    /// speech is never dropped; raise only if silence still slips through.
+    static let silenceRMSThreshold: Float = 0.005
+
+    /// Whether the just-recorded clip was too quiet to be real speech.
+    var lastClipWasSilent: Bool { peakRMS < Self.silenceRMSThreshold }
 
     /// Reserve enough for a minute of 16kHz mono up front so the audio thread
     /// doesn't reallocate `samples` mid-recording (allocation there can glitch).
@@ -27,15 +47,15 @@ final class AudioRecorder {
             channels: 1,
             interleaved: false
         )!
-        // The engine stops when the active input device is added/removed; log it
-        // so a truncated clip has an explanation rather than failing silently.
+        // The engine stops when the active input device is added/removed. Rather
+        // than let the clip truncate silently, rebuild the tap on the new device
+        // so recording continues, and tell the user what happened.
         configObserver = NotificationCenter.default.addObserver(
             forName: .AVAudioEngineConfigurationChange,
             object: engine,
             queue: .main
         ) { [weak self] _ in
-            guard let self = self, self.isRecording else { return }
-            mlog("audio configuration changed mid-recording (input device added/removed)")
+            self?.handleConfigurationChange()
         }
     }
 
@@ -53,8 +73,18 @@ final class AudioRecorder {
         lock.lock()
         samples.removeAll(keepingCapacity: true)
         samples.reserveCapacity(Self.reservedSamples)
+        peakRMS = 0
         lock.unlock()
 
+        guard beginCapture() else { return false }
+        isRecording = true
+        return true
+    }
+
+    /// Install the tap on the current input device and start the engine. Shared by
+    /// `start()` and the mid-recording restart. Does not clear accumulated samples,
+    /// so a device swap keeps the audio captured so far.
+    private func beginCapture() -> Bool {
         let input = engine.inputNode
         applyPreferredDevice(to: input)
         let inputFormat = input.inputFormat(forBus: 0)
@@ -71,13 +101,32 @@ final class AudioRecorder {
         do {
             engine.prepare()
             try engine.start()
-            isRecording = true
             return true
         } catch {
             mlog("audio engine failed to start: \(error)")
             input.removeTap(onBus: 0)
             return false
         }
+    }
+
+    /// The active input device changed while recording. Rebuild the tap on the new
+    /// device so the clip continues, keeping the audio captured so far, and report
+    /// whether capture resumed.
+    private func handleConfigurationChange() {
+        guard isRecording, !isReconfiguring else { return }
+        isReconfiguring = true
+        defer { isReconfiguring = false }
+
+        mlog("audio configuration changed mid-recording (input device added/removed) — restarting engine")
+        engine.inputNode.removeTap(onBus: 0)
+        engine.stop()
+
+        let resumed = beginCapture()
+        if !resumed {
+            mlog("could not resume capture after device change; ending clip")
+            isRecording = false
+        }
+        onConfigurationChange?(resumed)
     }
 
     func stop() -> [Float] {
@@ -137,13 +186,15 @@ final class AudioRecorder {
         guard count > 0 else { return }
 
         let frame = UnsafeBufferPointer(start: channel[0], count: count)
+        let rms = Self.rms(of: frame)
 
         lock.lock()
         samples.append(contentsOf: frame)
+        if rms > peakRMS { peakRMS = rms }
         lock.unlock()
 
         if let onLevel = onLevel {
-            let level = Self.loudness(of: frame)
+            let level = Self.perceptualLevel(fromRMS: rms)
             DispatchQueue.main.async { onLevel(level) }
         }
     }
@@ -151,12 +202,17 @@ final class AudioRecorder {
     /// Controls how strongly mic loudness drives the waveform height.
     private static let levelGain: Float = 9
 
-    /// RMS mapped to a perceptual 0...1 range for the waveform display.
-    private static func loudness(of frame: UnsafeBufferPointer<Float>) -> Float {
+    /// Raw root-mean-square amplitude of a buffer. Used both for the silence gate
+    /// and (mapped) for the waveform display.
+    private static func rms(of frame: UnsafeBufferPointer<Float>) -> Float {
         guard !frame.isEmpty else { return 0 }
         var sum: Float = 0
         for s in frame { sum += s * s }
-        let rms = (sum / Float(frame.count)).squareRoot()
+        return (sum / Float(frame.count)).squareRoot()
+    }
+
+    /// RMS mapped to a perceptual 0...1 range for the waveform display.
+    private static func perceptualLevel(fromRMS rms: Float) -> Float {
         // Voice RMS is small; boost and soft-clip to 0...1.
         let scaled = (rms * levelGain).squareRoot()
         return min(max(scaled, 0), 1)
