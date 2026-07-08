@@ -47,4 +47,24 @@ public final class AppExtensionPoints {
     /// `Settings.selectedEngineID` so the newly-selected engine loads without a
     /// restart. nil until the core wires it up.
     public var reloadEngine: (() -> Void)?
+
+    // MARK: Vocabulary
+
+    /// A Pro-contributed whisper `initial_prompt`: a short natural-language string
+    /// of domain words/names that biases recognition. The core wires this into the
+    /// base.en engine (and Pro engines read it too), evaluating it fresh per
+    /// transcription so vocabulary edits apply on the next dictation without an
+    /// engine reload. nil (free build) means no biasing — behavior is unchanged.
+    ///
+    /// Unlike the hooks above, this is *invoked* on the transcription queue (not the
+    /// main thread), so an implementation must be safe to read off-main.
+    public var vocabularyPrompt: (() -> String?)?
+
+    /// A Pro-contributed pure transform applied to each transcript after the core's
+    /// `TextProcessing.clean` and before delivery — the seam for user replacement
+    /// rules today, and where Phase 4 AI cleanup will plug in. Kept a simple
+    /// `String -> String` so both can share it. nil (free build) is the identity.
+    ///
+    /// Invoked on the transcription queue, so it must be safe to run off-main.
+    public var transformTranscript: ((String) -> String)?
 }

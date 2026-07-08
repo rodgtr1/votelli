@@ -31,7 +31,8 @@ votelli_ctx *votelli_whisper_init(const char *model_path, int use_gpu) {
 char *votelli_whisper_transcribe(votelli_ctx *ctx,
                                 const float *samples,
                                 int n_samples,
-                                int n_threads) {
+                                int n_threads,
+                                const char *initial_prompt) {
     if (!ctx || !ctx->wctx || !samples || n_samples <= 0) {
         return NULL;
     }
@@ -48,6 +49,13 @@ char *votelli_whisper_transcribe(votelli_ctx *ctx,
     params.single_segment = false;
     params.language = "en";
     params.n_threads = n_threads > 0 ? n_threads : 4;
+
+    // Bias decoding toward caller-supplied vocabulary (names, jargon) when given.
+    // whisper only reads this while the pointer is valid for the whisper_full call,
+    // and it internally truncates to ~224 tokens, so we pass it straight through.
+    if (initial_prompt && initial_prompt[0] != '\0') {
+        params.initial_prompt = initial_prompt;
+    }
 
     if (whisper_full(ctx->wctx, params, samples, n_samples) != 0) {
         return NULL;

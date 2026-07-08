@@ -157,7 +157,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         NSLog("Votelli: bundled model ggml-base.en.bin not found")
                         return nil
                     }
-                    return Transcriber(modelPath: path, useGPU: true)
+                    // Read the Pro vocabulary prompt (if any) fresh per transcription;
+                    // nil in the free build, so decoding is unbiased as before.
+                    return Transcriber(
+                        modelPath: path, useGPU: true,
+                        initialPrompt: { AppExtensionPoints.shared.vocabularyPrompt?() }
+                    )
                 }
             )
         )
@@ -286,6 +291,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             for samples in clips {
                 guard let text = engine.transcribe(samples) else { mlog("transcribe returned nil"); continue }
                 var cleaned = TextProcessing.clean(text)
+                // Pro transcript transform (user replacement rules today, AI cleanup
+                // in Phase 4). Identity in the free build. Runs here so both history
+                // and delivery see the transformed text.
+                if let transform = AppExtensionPoints.shared.transformTranscript {
+                    cleaned = transform(cleaned)
+                }
                 mlog("transcribed \(cleaned.count) chars from \(samples.count) samples")
                 mdebug("text: \"\(cleaned)\"")
                 guard !cleaned.isEmpty else { continue }
