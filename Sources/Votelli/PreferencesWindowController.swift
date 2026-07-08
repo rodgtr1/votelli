@@ -7,6 +7,7 @@ import AVFoundation
 final class PreferencesWindowController: NSObject, NSWindowDelegate {
     var onHotkeyChanged: ((Int) -> Void)?
     var onToggleLogin: ((Bool) -> Void)?
+    var onToggleSaveHistory: ((Bool) -> Void)?
 
     private var window: NSWindow!
     private let inputDevicePopup = NSPopUpButton(frame: .zero, pullsDown: false)
@@ -14,6 +15,7 @@ final class PreferencesWindowController: NSObject, NSWindowDelegate {
     private var inputDeviceUIDs: [String?] = []
     private let captureButton = NSButton(title: "", target: nil, action: nil)
     private let trailingSpaceCheckbox = NSButton(checkboxWithTitle: "Add a space after each dictation", target: nil, action: nil)
+    private let saveHistoryCheckbox = NSButton(checkboxWithTitle: "Save history to disk", target: nil, action: nil)
     private let loginCheckbox = NSButton(checkboxWithTitle: "Start at login", target: nil, action: nil)
     private let micStatus = NSTextField(labelWithString: "")
     private let inputStatus = NSTextField(labelWithString: "")
@@ -51,44 +53,54 @@ final class PreferencesWindowController: NSObject, NSWindowDelegate {
     }
 
     private func buildWindow() {
-        let content = NSView(frame: NSRect(x: 0, y: 0, width: 400, height: 480))
+        let content = NSView(frame: NSRect(x: 0, y: 0, width: 400, height: 560))
 
-        let inputTitle = label("Microphone input", size: 13, bold: true, frame: NSRect(x: 24, y: 444, width: 352, height: 22))
+        let inputTitle = label("Microphone input", size: 13, bold: true, frame: NSRect(x: 24, y: 524, width: 352, height: 22))
         content.addSubview(inputTitle)
 
-        inputDevicePopup.frame = NSRect(x: 22, y: 414, width: 356, height: 26)
+        inputDevicePopup.frame = NSRect(x: 22, y: 494, width: 356, height: 26)
         inputDevicePopup.target = self
         inputDevicePopup.action = #selector(selectInputDevice)
         content.addSubview(inputDevicePopup)
 
         let inputHint = label("Votelli always records from this device, even if macOS changes the system default.",
-                              size: 11, bold: false, frame: NSRect(x: 24, y: 392, width: 356, height: 18))
+                              size: 11, bold: false, frame: NSRect(x: 24, y: 472, width: 356, height: 18))
         inputHint.textColor = .secondaryLabelColor
         content.addSubview(inputHint)
 
-        let title = label("Push-to-talk key", size: 13, bold: true, frame: NSRect(x: 24, y: 360, width: 352, height: 22))
+        let title = label("Push-to-talk key", size: 13, bold: true, frame: NSRect(x: 24, y: 440, width: 352, height: 22))
         content.addSubview(title)
 
-        captureButton.frame = NSRect(x: 24, y: 322, width: 352, height: 32)
+        captureButton.frame = NSRect(x: 24, y: 402, width: 352, height: 32)
         captureButton.bezelStyle = .rounded
         captureButton.target = self
         captureButton.action = #selector(beginCapture)
         content.addSubview(captureButton)
 
         let hint = label("Click the button, then press the modifier key you want to hold.",
-                         size: 11, bold: false, frame: NSRect(x: 24, y: 298, width: 352, height: 18))
+                         size: 11, bold: false, frame: NSRect(x: 24, y: 378, width: 352, height: 18))
         hint.textColor = .secondaryLabelColor
         content.addSubview(hint)
 
-        trailingSpaceCheckbox.frame = NSRect(x: 22, y: 264, width: 352, height: 22)
+        trailingSpaceCheckbox.frame = NSRect(x: 22, y: 344, width: 352, height: 22)
         trailingSpaceCheckbox.target = self
         trailingSpaceCheckbox.action = #selector(toggleTrailingSpace)
         content.addSubview(trailingSpaceCheckbox)
 
-        loginCheckbox.frame = NSRect(x: 22, y: 238, width: 352, height: 22)
+        loginCheckbox.frame = NSRect(x: 22, y: 318, width: 352, height: 22)
         loginCheckbox.target = self
         loginCheckbox.action = #selector(toggleLogin)
         content.addSubview(loginCheckbox)
+
+        saveHistoryCheckbox.frame = NSRect(x: 22, y: 288, width: 352, height: 22)
+        saveHistoryCheckbox.target = self
+        saveHistoryCheckbox.action = #selector(toggleSaveHistory)
+        content.addSubview(saveHistoryCheckbox)
+
+        let historyHint = label("Off by default. Your dictation is sensitive — when on it's stored as plain text on your Mac.",
+                                size: 11, bold: false, frame: NSRect(x: 40, y: 270, width: 340, height: 18))
+        historyHint.textColor = .secondaryLabelColor
+        content.addSubview(historyHint)
 
         let permTitle = label("Permissions", size: 13, bold: true, frame: NSRect(x: 24, y: 196, width: 352, height: 22))
         content.addSubview(permTitle)
@@ -138,6 +150,7 @@ final class PreferencesWindowController: NSObject, NSWindowDelegate {
             captureButton.title = Keymap.name(for: Settings.shared.hotkeyKeyCode)
         }
         trailingSpaceCheckbox.state = Settings.shared.addTrailingSpace ? .on : .off
+        saveHistoryCheckbox.state = Settings.shared.saveHistoryToDisk ? .on : .off
         loginCheckbox.state = LoginItem.isEnabled ? .on : .off
         refreshPermissionStatus()
     }
@@ -228,6 +241,12 @@ final class PreferencesWindowController: NSObject, NSWindowDelegate {
 
     @objc private func toggleTrailingSpace() {
         Settings.shared.addTrailingSpace = trailingSpaceCheckbox.state == .on
+    }
+
+    @objc private func toggleSaveHistory() {
+        let on = saveHistoryCheckbox.state == .on
+        Settings.shared.saveHistoryToDisk = on
+        onToggleSaveHistory?(on)
     }
 
     @objc private func toggleLogin() {

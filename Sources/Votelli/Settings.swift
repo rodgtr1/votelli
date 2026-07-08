@@ -11,6 +11,7 @@ final class Settings {
         static let didPromptAccessibility = "didPromptAccessibility"
         static let addTrailingSpace = "addTrailingSpace"
         static let inputDeviceUID = "inputDeviceUID"
+        static let saveHistoryToDisk = "saveHistoryToDisk"
     }
 
     /// UID of the microphone to record from. When set, Votelli always uses this
@@ -37,6 +38,13 @@ final class Settings {
     var addTrailingSpace: Bool {
         get { defaults.object(forKey: Keys.addTrailingSpace) as? Bool ?? true }
         set { defaults.set(newValue, forKey: Keys.addTrailingSpace) }
+    }
+
+    /// Persist transcription history to disk so it survives quitting. Default false:
+    /// dictation is sensitive, so history stays in memory only unless the user opts in.
+    var saveHistoryToDisk: Bool {
+        get { defaults.bool(forKey: Keys.saveHistoryToDisk) }
+        set { defaults.set(newValue, forKey: Keys.saveHistoryToDisk) }
     }
 
     /// Whether we've shown the system Accessibility dialog once (avoid nagging).

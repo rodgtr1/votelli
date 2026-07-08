@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let indicator = RecordingIndicator()
     private let preferences = PreferencesWindowController()
     private var transcriber: Transcriber?
+    private let history = TranscriptionHistory()
     private let workQueue = DispatchQueue(label: "media.travis.votelli.transcribe", qos: .userInitiated)
 
     /// Mutated only on the main thread.
@@ -31,6 +32,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         status.onOpenAccessibility = { Permissions.openAccessibilitySettings() }
         status.onOpenInputMonitoring = { Permissions.openInputMonitoringSettings() }
         status.onOpenPreferences = { [weak self] in self?.preferences.show() }
+        status.onCopyHistoryEntry = { text in
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(text, forType: .string)
+            mlog("history: copied \(text.count) chars to clipboard")
+        }
+        status.onClearHistory = { [weak self] in
+            self?.history.clear()
+            self?.refreshRecentMenu()
+        }
+
+        // Load persisted history (if the user opted in) and reflect it in the menu.
+        history.load { [weak self] in self?.refreshRecentMenu() }
+        refreshRecentMenu()
 
         preferences.onHotkeyChanged = { [weak self] code in
             self?.hotkey.updateKeyCode(code)
@@ -39,6 +53,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         preferences.onToggleLogin = { [weak self] on in
             LoginItem.setEnabled(on)
             self?.status.setLoginChecked(LoginItem.isEnabled)
+        }
+        preferences.onToggleSaveHistory = { [weak self] on in
+            self?.history.setPersistenceEnabled(on)
         }
 
         recorder.onLevel = { [weak self] level in self?.indicator.setLevel(level) }
@@ -227,6 +244,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Accessibility, or secure input active), copy it to the clipboard and notify
     /// the user so the words are never lost.
     private func deliver(_ text: String) {
+        // Record every transcript here — the single point every delivery passes
+        // through — so history is the final backstop even when typing falls back
+        // to the clipboard below.
+        history.record(text, date: Date())
+        refreshRecentMenu()
+
         mlog("typing \(text.count) chars")
         if TextInjector.type(text) { return }
 
@@ -237,6 +260,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             title: "Votelli couldn't type here",
             body: "Your dictation was copied to the clipboard — press ⌘V to paste it."
         )
+    }
+
+    /// Show the five most recent transcriptions in the status menu's Recent submenu.
+    private func refreshRecentMenu() {
+        status.setRecentTranscriptions(history.recent(5))
     }
 
     private func finishToIdle() {

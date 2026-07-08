@@ -16,10 +16,16 @@ final class StatusItemController {
     var onOpenAccessibility: (() -> Void)?
     var onOpenInputMonitoring: (() -> Void)?
     var onOpenPreferences: (() -> Void)?
+    /// Called with the full (untruncated) text of a clicked Recent entry.
+    var onCopyHistoryEntry: ((String) -> Void)?
+    var onClearHistory: (() -> Void)?
 
     private let statusItem: NSStatusItem
     private let stateItem = NSMenuItem(title: "Ready", action: nil, keyEquivalent: "")
     private let hintItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let recentItem = NSMenuItem(title: "Recent", action: nil, keyEquivalent: "")
+    private let recentMenu = NSMenu()
+    private let clearHistoryItem = NSMenuItem(title: "Clear History", action: nil, keyEquivalent: "")
     private let loginItem = NSMenuItem(title: "Start at Login", action: nil, keyEquivalent: "")
 
     init() {
@@ -31,6 +37,9 @@ final class StatusItemController {
 
     private func buildMenu() {
         let menu = NSMenu()
+        // Manual enabling: Clear History toggles with history state, and auto-enable
+        // would override the isEnabled we set on it.
+        menu.autoenablesItems = false
 
         stateItem.isEnabled = false
         menu.addItem(stateItem)
@@ -38,6 +47,15 @@ final class StatusItemController {
 
         hintItem.isEnabled = false
         menu.addItem(hintItem)
+        menu.addItem(.separator())
+
+        recentItem.submenu = recentMenu
+        menu.addItem(recentItem)
+        setRecentTranscriptions([])
+
+        clearHistoryItem.target = self
+        clearHistoryItem.action = #selector(clearHistory)
+        menu.addItem(clearHistoryItem)
         menu.addItem(.separator())
 
         let prefs = NSMenuItem(title: "Preferences…", action: #selector(openPreferences), keyEquivalent: ",")
@@ -62,6 +80,39 @@ final class StatusItemController {
         menu.addItem(quit)
 
         statusItem.menu = menu
+    }
+
+    /// Rebuild the Recent submenu from the newest-first entries. Long entries are
+    /// truncated for display; clicking one copies its full text to the clipboard.
+    func setRecentTranscriptions(_ entries: [HistoryEntry]) {
+        DispatchQueue.main.async {
+            self.recentMenu.removeAllItems()
+            guard !entries.isEmpty else {
+                let empty = NSMenuItem(title: "No transcriptions yet", action: nil, keyEquivalent: "")
+                empty.isEnabled = false
+                self.recentMenu.addItem(empty)
+                self.clearHistoryItem.isEnabled = false
+                return
+            }
+            for entry in entries {
+                let item = NSMenuItem(title: Self.displayTitle(for: entry.text),
+                                      action: #selector(self.copyHistoryEntry(_:)), keyEquivalent: "")
+                item.target = self
+                item.representedObject = entry.text
+                item.toolTip = "Click to copy the full text"
+                self.recentMenu.addItem(item)
+            }
+            self.clearHistoryItem.isEnabled = true
+        }
+    }
+
+    /// Collapse whitespace to a single line and clip to a menu-friendly length.
+    private static func displayTitle(for text: String) -> String {
+        let collapsed = text.split(whereSeparator: { $0.isWhitespace || $0.isNewline })
+            .joined(separator: " ")
+        let limit = 60
+        if collapsed.count <= limit { return collapsed }
+        return String(collapsed.prefix(limit)).trimmingCharacters(in: .whitespaces) + "…"
     }
 
     func setLoginChecked(_ on: Bool) {
@@ -100,6 +151,15 @@ final class StatusItemController {
 
     @objc private func openPreferences() {
         onOpenPreferences?()
+    }
+
+    @objc private func copyHistoryEntry(_ sender: NSMenuItem) {
+        guard let text = sender.representedObject as? String else { return }
+        onCopyHistoryEntry?(text)
+    }
+
+    @objc private func clearHistory() {
+        onClearHistory?()
     }
 
     @objc private func quit() {
