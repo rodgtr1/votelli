@@ -48,6 +48,18 @@ public final class AppExtensionPoints {
     /// restart. nil until the core wires it up.
     public var reloadEngine: (() -> Void)?
 
+    // MARK: Recording lifecycle
+
+    /// Fired when audio capture actually begins — after the recorder starts, not when the
+    /// hotkey is merely pressed, so it never fires for a refused start (no mic, no
+    /// permission). A Pro build uses it to warm up work that would otherwise be paid for
+    /// on the transcription queue while the user waits for their text: today, loading the
+    /// on-device language model used for AI cleanup, which takes long enough to matter and
+    /// overlaps neatly with the user still speaking.
+    ///
+    /// Main-thread only, like the hooks above. nil (free build) is a no-op.
+    public var recordingDidStart: (() -> Void)?
+
     // MARK: Vocabulary
 
     /// A Pro-contributed whisper `initial_prompt`: a short natural-language string
@@ -62,8 +74,9 @@ public final class AppExtensionPoints {
 
     /// A Pro-contributed pure transform applied to each transcript after the core's
     /// `TextProcessing.clean` and before delivery — the seam for user replacement
-    /// rules today, and where Phase 4 AI cleanup will plug in. Kept a simple
-    /// `String -> String` so both can share it. nil (free build) is the identity.
+    /// rules and for on-device AI cleanup, which a Pro build composes into a single
+    /// chain. Kept a simple `String -> String` so both can share it. nil (free build)
+    /// is the identity.
     ///
     /// Invoked on the transcription queue, so it must be safe to run off-main.
     public var transformTranscript: ((String) -> String)?

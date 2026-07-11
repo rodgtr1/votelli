@@ -244,6 +244,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         state = .recording
         status.setState(.recording)
         indicator.show()
+
+        // Audio is flowing, so a Pro build can start warming whatever it needs by the
+        // time the transcript lands (the on-device cleanup model). No-op in the free build.
+        AppExtensionPoints.shared.recordingDidStart?()
     }
 
     private func stopRecording() {
