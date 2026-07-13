@@ -39,7 +39,7 @@ logs:
 # TCC keys users' permission grants to this; it MUST NOT change between releases.
 # If you ever deliberately rotate the signing identity, update this value (and
 # accept that existing users will have to re-grant permissions once).
-RELEASE_LEAF_HASH := ed332f703e45f439c303671ca8766627fcd7bc7a
+RELEASE_LEAF_HASH := 6dcb6da0fac0967f882f8df7dcede58e5dc993b6
 
 # Build a drag-to-Applications DMG for public release. Forces the stable signing
 # identity (no silent ad-hoc fallback) and verifies the leaf hash is unchanged,
