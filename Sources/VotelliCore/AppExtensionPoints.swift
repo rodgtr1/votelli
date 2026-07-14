@@ -72,6 +72,14 @@ public final class AppExtensionPoints {
     /// main thread), so an implementation must be safe to read off-main.
     public var vocabularyPrompt: (() -> String?)?
 
+    /// The same Pro vocabulary as raw terms rather than a prose prompt, for
+    /// engines with a native contextual-biasing hook (the Apple Speech engine
+    /// feeds these to `AnalysisContext.contextualStrings`). A Pro build should
+    /// set both this and `vocabularyPrompt` so every engine benefits.
+    ///
+    /// Invoked on the transcription queue, so it must be safe to read off-main.
+    public var vocabularyTerms: (() -> [String])?
+
     /// A Pro-contributed pure transform applied to each transcript after the core's
     /// `TextProcessing.clean` and before delivery — the seam for user replacement
     /// rules and for on-device AI cleanup, which a Pro build composes into a single

@@ -16,10 +16,16 @@ public final class Settings {
         static let inputDeviceUID = "inputDeviceUID"
         static let saveHistoryToDisk = "saveHistoryToDisk"
         static let selectedEngineID = "selectedEngineID"
+        static let appleSpeechAssetsReady = "appleSpeechAssetsReady"
+        static let appleSpeechLocaleID = "appleSpeechLocaleID"
     }
 
     /// The default engine id every build ships with.
     public static let defaultEngineID = "base.en"
+
+    /// Id of the Apple SpeechAnalyzer engine registered on macOS 26+. Preferred
+    /// over `defaultEngineID` when available and the user hasn't picked an engine.
+    public static let appleSpeechEngineID = "apple.speech"
 
     /// Id of the transcription engine to load, matched against `EngineRegistry`.
     /// Defaults to the built-in base.en engine, so a free build always resolves it.
@@ -28,6 +34,28 @@ public final class Settings {
     public var selectedEngineID: String {
         get { defaults.string(forKey: Keys.selectedEngineID) ?? Self.defaultEngineID }
         set { defaults.set(newValue, forKey: Keys.selectedEngineID) }
+    }
+
+    /// Whether the user has ever explicitly chosen an engine. Until they do, the
+    /// core is free to pick the best default for the machine (the Apple Speech
+    /// engine on macOS 26+, base.en elsewhere).
+    var hasExplicitEngineSelection: Bool {
+        defaults.string(forKey: Keys.selectedEngineID) != nil
+    }
+
+    /// Cached result of the last Apple Speech asset check, so the engine can
+    /// report availability synchronously at launch. Re-verified in the background
+    /// on every launch by `AppleSpeechAssets.prepare`.
+    var appleSpeechAssetsReady: Bool {
+        get { defaults.bool(forKey: Keys.appleSpeechAssetsReady) }
+        set { defaults.set(newValue, forKey: Keys.appleSpeechAssetsReady) }
+    }
+
+    /// BCP-47 identifier of the transcriber locale resolved during asset
+    /// preparation (the user's locale when supported, else en-US).
+    var appleSpeechLocaleID: String? {
+        get { defaults.string(forKey: Keys.appleSpeechLocaleID) }
+        set { defaults.set(newValue, forKey: Keys.appleSpeechLocaleID) }
     }
 
     /// UID of the microphone to record from. When set, Votelli always uses this

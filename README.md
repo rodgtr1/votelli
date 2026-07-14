@@ -8,7 +8,9 @@ Lives in the menu bar (top right), not the Dock. No window, no fuss.
 ## Features
 
 - **Push-and-hold dictation** — hold a modifier key (default Right Option ⌥), speak, release. Text appears at your cursor.
-- **Fully local & fast** — bundled Whisper `base.en` model runs on the GPU via Metal. Nothing leaves your Mac.
+- **Fully local & fast** — on macOS 26+ Votelli uses Apple's on-device SpeechAnalyzer
+  engine (the most accurate local option, with OS-managed models); everywhere else the
+  bundled Whisper `base.en` model runs on the GPU via Metal. Nothing leaves your Mac.
 - **Menu bar only** — no Dock icon, no window. Icon shows idle / recording / transcribing.
 - **Live waveform** — a floating HUD rises and falls with your voice while you hold the key.
 - **Pick your own hotkey** — Preferences lets you set the key by pressing it.
@@ -108,12 +110,16 @@ Accessibility, relaunch once (`pkill -x Votelli; open /Applications/Votelli.app`
 ## How it works
 
 ```
-Hold key  →  AVAudioEngine (16kHz mono)  →  whisper.cpp (Metal)  →  CGEvent unicode typing
+Hold key  →  AVAudioEngine (16kHz mono)  →  speech engine (on-device)  →  CGEvent unicode typing
 ```
 
 - `HotkeyMonitor` — a `listenOnly` CGEvent tap watches `flagsChanged` for the chosen modifier.
 - `AudioRecorder` — captures the mic, resamples to 16kHz mono float, and reports live levels for the waveform.
 - `Transcriber` — thin C wrapper (`Sources/CWhisper`) over whisper.cpp, loaded once off the main thread.
+- `AppleSpeechEngine` — Apple's SpeechAnalyzer/SpeechTranscriber, used by default on
+  macOS 26+ where it's both more accurate and faster than the bundled model. Its model
+  assets are downloaded and updated by the OS. Whisper remains the floor on macOS 13–15
+  (and the fallback if the assets aren't ready).
 - `TextProcessing` (`Sources/VotelliText`) — strips Whisper non-speech annotations like `[BLANK_AUDIO]`; unit-tested via `swift test`.
 - `TextInjector` — synthesizes Unicode key events so text lands at the cursor without touching the clipboard.
 

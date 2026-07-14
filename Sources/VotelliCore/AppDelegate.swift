@@ -9,6 +9,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let indicator = RecordingIndicator()
     private let preferences = PreferencesWindowController()
     private var engine: TranscriptionEngine?
+
+    /// Id of the engine that is loaded or currently loading, nil if none. Lets the
+    /// Apple Speech asset check tell whether a switch is actually a change.
+    /// Mutated only on the main thread.
+    private var activeEngineID: String?
     private let history = TranscriptionHistory()
     private let workQueue = DispatchQueue(label: "media.travis.votelli.transcribe", qos: .userInitiated)
 
@@ -77,6 +82,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         Notifier.requestAuthorization()
+        prepareAppleSpeechEngine()
         loadModel()
 
         hotkey = HotkeyMonitor(keyCode: Settings.shared.hotkeyKeyCode)
@@ -143,9 +149,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Register the engines every build ships with. The free build ships one:
-    /// the bundled whisper base.en model. A Pro build registers additional engines
-    /// before `VotelliMain()`, so by the time this runs they already coexist.
+    /// Register the engines every build ships with: the bundled whisper base.en
+    /// model everywhere, plus Apple's SpeechAnalyzer engine on macOS 26+ (whose
+    /// model assets the OS downloads and manages — see `AppleSpeechAssets`).
+    /// A Pro build registers additional engines before `VotelliMain()`, so by the
+    /// time this runs they already coexist.
     private func registerBuiltInEngines() {
         EngineRegistry.shared.register(
             EngineDescriptor(
@@ -166,17 +174,59 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             )
         )
+        if #available(macOS 26.0, *) {
+            EngineRegistry.shared.register(
+                EngineDescriptor(
+                    id: Settings.appleSpeechEngineID,
+                    displayName: "Apple Speech (built-in)",
+                    isAvailable: { Settings.shared.appleSpeechAssetsReady },
+                    makeEngine: { AppleSpeechEngine() }
+                )
+            )
+        }
     }
 
-    /// Resolve the engine to load: the one selected in Settings if it's available,
-    /// otherwise the first available engine (so a Pro user whose selected model
-    /// isn't downloaded yet still gets the built-in base.en).
+    /// Verify (and if needed download) the Apple Speech model assets in the
+    /// background, then switch to that engine if it just became the best choice —
+    /// or away from it if its assets turn out to be gone.
+    private func prepareAppleSpeechEngine() {
+        guard #available(macOS 26.0, *) else { return }
+        AppleSpeechAssets.prepare { [weak self] ready in
+            guard let self = self else { return }
+            if ready {
+                // Only auto-switch when the user hasn't picked an engine themselves,
+                // and never mid-recording/transcription (the next launch gets it).
+                guard !Settings.shared.hasExplicitEngineSelection,
+                      self.activeEngineID != Settings.appleSpeechEngineID,
+                      self.state == .idle else { return }
+                mlog("apple speech: assets ready — switching to the Apple Speech engine")
+                self.reloadEngine()
+            } else if self.activeEngineID == Settings.appleSpeechEngineID {
+                mlog("apple speech: assets no longer available — falling back")
+                self.reloadEngine()
+            }
+        }
+    }
+
+    /// Resolve the engine to load. An explicit user selection wins if available.
+    /// Absent one, prefer the Apple Speech engine where it's ready (macOS 26+ —
+    /// substantially more accurate than the bundled base.en model), then the
+    /// default, then anything available (so a Pro user whose selected model isn't
+    /// downloaded yet still gets a working engine).
     private func resolveEngineDescriptor() -> EngineDescriptor? {
         let registry = EngineRegistry.shared
-        let selected = registry.descriptor(id: Settings.shared.selectedEngineID)
-        if let selected = selected, selected.isAvailable() { return selected }
-        if let selected = selected {
-            mlog("engine: selected '\(selected.id)' unavailable — falling back")
+        if Settings.shared.hasExplicitEngineSelection {
+            if let selected = registry.descriptor(id: Settings.shared.selectedEngineID),
+               selected.isAvailable() {
+                return selected
+            }
+            mlog("engine: selected '\(Settings.shared.selectedEngineID)' unavailable — falling back")
+        } else if let apple = registry.descriptor(id: Settings.appleSpeechEngineID),
+                  apple.isAvailable() {
+            return apple
+        }
+        if let fallback = registry.descriptor(id: Settings.defaultEngineID), fallback.isAvailable() {
+            return fallback
         }
         return registry.firstAvailable ?? registry.descriptor(id: Settings.defaultEngineID)
     }
@@ -186,15 +236,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSLog("Votelli: no transcription engine available")
             return
         }
+        // The safety net if the resolved engine fails to *load* (resolution only
+        // checks availability): the default engine, captured here because the
+        // registry is main-thread-only.
+        let fallback = descriptor.id == Settings.defaultEngineID
+            ? nil : EngineRegistry.shared.descriptor(id: Settings.defaultEngineID)
         mlog("engine: loading '\(descriptor.id)'")
+        activeEngineID = descriptor.id
         workQueue.async { [weak self] in
-            let e = descriptor.makeEngine()
-            if e == nil { NSLog("Votelli: failed to load engine '\(descriptor.id)'") }
+            var e = descriptor.makeEngine()
+            var loadedID: String? = descriptor.id
+            if e == nil, let fallback = fallback, fallback.isAvailable() {
+                mlog("engine: '\(descriptor.id)' failed to load — trying '\(fallback.id)'")
+                e = fallback.makeEngine()
+                loadedID = fallback.id
+            }
+            if e == nil {
+                NSLog("Votelli: failed to load engine '\(descriptor.id)'")
+                loadedID = nil
+            }
             // Hand the engine off on the main thread — `engine` and the pending
             // clip buffer are main-thread state — and flush anything captured while
             // it was loading.
             DispatchQueue.main.async {
                 self?.engine = e
+                self?.activeEngineID = loadedID
                 self?.modelDidLoad()
             }
         }
