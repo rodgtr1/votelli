@@ -48,6 +48,30 @@ public final class AppExtensionPoints {
     /// restart. nil until the core wires it up.
     public var reloadEngine: (() -> Void)?
 
+    // MARK: History persistence
+
+    /// Set by the core at launch. A Pro build calls this after changing
+    /// `Settings.saveHistoryToDisk` so the switch takes effect on the history that already
+    /// exists: turning it on writes the current buffer out, turning it off removes the file.
+    /// Without this the setting would only govern the *next* dictation, which is not what
+    /// either checkbox claims. nil until the core wires it up.
+    public var setHistoryPersistenceEnabled: ((Bool) -> Void)?
+
+    // MARK: History capacity
+
+    /// Set by the core at launch. A Pro build calls this when the user picks a new history
+    /// size, instead of writing `HistorySettings.capacity` itself: the core owns the buffer,
+    /// so only the core can re-trim what's already in memory, persist the result, and refresh
+    /// an open history window. Writing the static alone would leave the choice governing only
+    /// the *next* dictation — and the retention floor would hold the old size indefinitely,
+    /// so a lowered capacity would never take effect at all.
+    ///
+    /// Calling this is also what lifts the floor: an explicit choice is the consent the floor
+    /// exists to require, so entries beyond the new size are deleted. A build that never calls
+    /// it (the free build has no capacity UI) keeps the floor and its inherited archive.
+    /// nil until the core wires it up.
+    public var applyHistoryCapacity: ((Int) -> Void)?
+
     // MARK: Recording lifecycle
 
     /// Fired when audio capture actually begins — after the recorder starts, not when the

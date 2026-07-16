@@ -73,6 +73,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // window, engine reload). All no-ops in the free build.
         registerBuiltInEngines()
         AppExtensionPoints.shared.reloadEngine = { [weak self] in self?.reloadEngine() }
+        AppExtensionPoints.shared.setHistoryPersistenceEnabled = { [weak self] on in
+            self?.history.setPersistenceEnabled(on)
+        }
+        AppExtensionPoints.shared.applyHistoryCapacity = { [weak self] capacity in
+            self?.history.applyCapacity(capacity)
+        }
         if AppExtensionPoints.shared.openHistoryWindow != nil {
             status.onOpenHistory = { [weak self] in
                 guard let self = self else { return }

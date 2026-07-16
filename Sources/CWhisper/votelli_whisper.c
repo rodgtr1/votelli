@@ -32,7 +32,8 @@ char *votelli_whisper_transcribe(votelli_ctx *ctx,
                                 const float *samples,
                                 int n_samples,
                                 int n_threads,
-                                const char *initial_prompt) {
+                                const char *initial_prompt,
+                                const char *language) {
     if (!ctx || !ctx->wctx || !samples || n_samples <= 0) {
         return NULL;
     }
@@ -47,7 +48,10 @@ char *votelli_whisper_transcribe(votelli_ctx *ctx,
     params.no_context = true;
     params.suppress_blank = true;
     params.single_segment = false;
-    params.language = "en";
+    // "auto" makes whisper detect the language per clip, which only a multilingual
+    // model can act on; the caller decides, since it knows which model it loaded.
+    // whisper reads this pointer only during whisper_full, so passing it through is safe.
+    params.language = (language && language[0] != '\0') ? language : "en";
     params.n_threads = n_threads > 0 ? n_threads : 4;
 
     // Bias decoding toward caller-supplied vocabulary (names, jargon) when given.

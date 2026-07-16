@@ -3,7 +3,7 @@ import Foundation
 /// Persistent, user-overridable settings backed by UserDefaults.
 ///
 /// Public so a downstream Pro build can read/write the settings it shares with the
-/// core (currently `selectedEngineID`). Most properties remain internal.
+/// core (`selectedEngineID`, `saveHistoryToDisk`). Most properties remain internal.
 public final class Settings {
     public static let shared = Settings()
 
@@ -86,7 +86,13 @@ public final class Settings {
 
     /// Persist transcription history to disk so it survives quitting. Default false:
     /// dictation is sensitive, so history stays in memory only unless the user opts in.
-    var saveHistoryToDisk: Bool {
+    ///
+    /// Public because a Pro build surfaces the same opt-in next to its history controls,
+    /// where the choice actually costs the user something. Writing this alone only changes
+    /// what future dictations do — call `AppExtensionPoints.shared.setHistoryPersistenceEnabled`
+    /// after, as the core's own Preferences window does, so the existing buffer is written
+    /// (or the file removed) to match.
+    public var saveHistoryToDisk: Bool {
         get { defaults.bool(forKey: Keys.saveHistoryToDisk) }
         set { defaults.set(newValue, forKey: Keys.saveHistoryToDisk) }
     }
