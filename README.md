@@ -24,19 +24,16 @@ Download, drag, approve once — no developer tools needed.
 1. Download the latest **`Votelli-<version>.dmg`** from the
    [Releases page](https://github.com/rodgtr1/votelli/releases/latest).
 2. Open the DMG and drag **Votelli.app** into your **Applications** folder.
-3. Double-click **Votelli**. Because it's self-signed (not notarized), macOS shows
-   *"Apple could not verify 'Votelli' is free of malware…"* — click **Done**.
-4. Open **System Settings → Privacy & Security** and scroll down to the **Security**
-   section. You'll see *"Votelli was blocked to protect your Mac."* Click
-   **Open Anyway**, then confirm.
-5. Votelli launches and walks you through the permissions it needs — it opens its
+3. Double-click **Votelli**. It's signed with an Apple Developer ID and notarized by
+   Apple, so it opens straight away — no "unidentified developer" detour.
+4. Votelli launches and walks you through the permissions it needs — it opens its
    own Preferences window showing the live status of each:
    - **Microphone** — click **Allow** on the popup.
    - **Input Monitoring** — when prompted, open System Settings and toggle
      **Votelli** on.
    - **Accessibility** — go to **Privacy & Security → Accessibility** and toggle
      **Votelli** on.
-6. Look for the **microphone icon** in the menu bar (top-right). Open **Preferences**
+5. Look for the **microphone icon** in the menu bar (top-right). Open **Preferences**
    to pick your microphone input. All set.
 
 Everything (Whisper model, Metal GPU shaders) is bundled. Requires an Apple Silicon
@@ -149,16 +146,15 @@ defaults write media.travis.votelli hotkeyKeyCode -int 54   # 54 = Right Command
 
 ## Distributing a prebuilt DMG
 
-`make dmg` produces `Votelli-<version>.dmg`. Because the app is self-signed (not
-notarized), anyone who **downloads** it has to clear Gatekeeper once — see the
-[Install](#install) steps (System Settings → Privacy & Security → **Open Anyway**).
-The equivalent from the terminal is:
+`make dmg` produces `Votelli-<version>.dmg`: it release-signs the app with the
+project's Apple Developer ID certificate and hardened runtime, submits the DMG to
+Apple for notarization, and staples the resulting ticket to it. Downloaders open it
+like any other Mac app — no Gatekeeper warning and nothing to clear by hand.
 
-```bash
-xattr -dr com.apple.quarantine /Applications/Votelli.app
-```
-
-Building from source avoids the warning entirely.
+That path needs the Developer ID identity and the `votelli-notary` notarization
+credentials on the build machine; see [PUBLISH.md](PUBLISH.md). Builds made from
+source with `make app` / `make install` are signed with the local development
+identity instead and are never quarantined.
 
 ## Uninstall
 

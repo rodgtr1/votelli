@@ -35,18 +35,20 @@ run: app
 logs:
 	log stream --level debug --predicate 'process == "Votelli"'
 
-# The leaf hash of the "Votelli Dev" certificate that signs every public release.
-# TCC keys users' permission grants to this; it MUST NOT change between releases.
-# If you ever deliberately rotate the signing identity, update this value (and
-# accept that existing users will have to re-grant permissions once).
-RELEASE_LEAF_HASH := 6dcb6da0fac0967f882f8df7dcede58e5dc993b6
+# The leaf hash of the "Developer ID Application: TRAVIS KEITH RODGERS (2UWZ923R8C)"
+# certificate that signs every public release. TCC keys users' permission grants to
+# this; it MUST NOT change between releases. If you ever deliberately rotate the
+# signing identity, update this value (and accept that existing users will have to
+# re-grant permissions once).
+RELEASE_LEAF_HASH := 7351c39bc57da9bba73ffc330aaab0e0144adaa7
 
-# Build a drag-to-Applications DMG for public release. Forces the stable signing
-# identity (no silent ad-hoc fallback) and verifies the leaf hash is unchanged,
-# so updates don't reset users' permissions. See scripts/make_dmg.sh notes.
+# Build a drag-to-Applications DMG for public release. Forces the Developer ID
+# signing identity (no silent ad-hoc or dev-identity fallback), verifies the leaf
+# hash is unchanged so updates don't reset users' permissions, then notarizes and
+# staples the DMG. See scripts/make_dmg.sh notes.
 dmg:
 	REQUIRE_STABLE_IDENTITY=1 EXPECTED_LEAF_HASH=$(RELEASE_LEAF_HASH) $(MAKE) app
-	bash scripts/make_dmg.sh
+	REQUIRE_STABLE_IDENTITY=1 EXPECTED_LEAF_HASH=$(RELEASE_LEAF_HASH) bash scripts/make_dmg.sh
 
 # Install to /Applications and (re)launch from there. The signed bundle is
 # relocatable, so copying preserves the signature and TCC grants.
