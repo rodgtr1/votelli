@@ -34,6 +34,7 @@ mkdir -p "$MACOS" "$RES" "$FRAMEWORKS"
 
 cp "$BIN" "$MACOS/Votelli"
 cp Resources/Info.plist "$CONTENTS/Info.plist"
+cp Resources/Votelli.icns "$RES/"          # app icon (CFBundleIconFile = Votelli)
 cp "$MODEL" "$RES/"
 
 # Bundle whisper + ggml dylibs (preserve version symlinks).

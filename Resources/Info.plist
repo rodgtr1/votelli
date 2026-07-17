@@ -10,6 +10,12 @@
     <string>media.travis.votelli</string>
     <key>CFBundleExecutable</key>
     <string>Votelli</string>
+    <!-- Names Resources/Votelli.icns. CFBundleIconFile (not CFBundleIconName) is
+         the right key here: this bundle is hand-assembled and drops a plain .icns
+         into Resources, with no compiled asset catalog (Assets.car) for
+         CFBundleIconName to resolve against. -->
+    <key>CFBundleIconFile</key>
+    <string>Votelli</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
