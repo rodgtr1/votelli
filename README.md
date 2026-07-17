@@ -45,6 +45,22 @@ Download, drag, approve once — no developer tools needed.
 Everything (Whisper model, Metal GPU shaders) is bundled. Requires an Apple Silicon
 Mac on macOS 13 or later. More on the [permissions](#first-run-permissions) below.
 
+## Votelli Pro
+
+Votelli is free. **Votelli Pro** unlocks more, all still fully on-device:
+
+- **Large-v3-turbo engine** — multilingual dictation that auto-detects the spoken language.
+- **Searchable history** — filter your full transcription history (up to 5,000 entries).
+- **Custom vocabulary** — bias transcription toward your names and terms, plus replacement rules.
+- **AI cleanup** — on-device polish that removes filler, fixes punctuation, and reformats for email, Slack, or code (macOS 26+).
+
+It's the same app you already have — a license unlocks these features. One-time purchase, no
+subscription, and nothing leaves your Mac.
+
+**[Get Votelli Pro →](https://travismedia.lemonsqueezy.com/checkout/buy/d2d0e477-8d40-4b4b-850c-2e2de0591f74)**
+
+After buying, your license key arrives by email; paste it into **Preferences → License**.
+
 ## Build from source
 
 > Most people don't need this — use the DMG above. Build from source only if you
