@@ -31,6 +31,7 @@ final class StatusItemController {
     private let recentMenu = NSMenu()
     private let clearHistoryItem = NSMenuItem(title: "Clear History", action: nil, keyEquivalent: "")
     private let loginItem = NSMenuItem(title: "Start at Login", action: nil, keyEquivalent: "")
+    private let updatesItem = NSMenuItem(title: "Check for Updates…", action: nil, keyEquivalent: "")
 
     init() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -64,6 +65,17 @@ final class StatusItemController {
         let prefs = NSMenuItem(title: "Preferences…", action: #selector(openPreferences), keyEquivalent: ",")
         prefs.target = self
         menu.addItem(prefs)
+
+        // "Check for Updates…" lives right by Preferences (both are app-management
+        // items). It starts disabled and inert; AppDelegate calls
+        // `wireCheckForUpdates(target:action:)` with Sparkle's controller to make
+        // it live. Keeping the wiring out of here means this file never imports
+        // Sparkle — the updater is just another collaborator handed in from the
+        // top, like `onQuit` and friends. If a build never wires it (there's no
+        // reason the free build wouldn't, but defensively), the item stays a
+        // harmless disabled row rather than a crash.
+        updatesItem.isEnabled = false
+        menu.addItem(updatesItem)
 
         loginItem.target = self
         loginItem.action = #selector(toggleLogin)
@@ -127,6 +139,25 @@ final class StatusItemController {
         historyItem.target = self
         let index = menu.index(of: recentItem) + 1
         menu.insertItem(historyItem, at: index)
+    }
+
+    /// Point the "Check for Updates…" item at Sparkle's controller. Passing the
+    /// target/action rather than a closure is deliberate: `checkForUpdates(_:)`
+    /// wants a proper Cocoa target/action, and giving Sparkle's controller the
+    /// action is the wiring its own docs recommend. Taking `AnyObject`/`Selector`
+    /// (not a Sparkle type) keeps this file Sparkle-free.
+    ///
+    /// The item is enabled unconditionally here because this menu runs with
+    /// `autoenablesItems = false`, so AppKit never calls the controller's
+    /// `validateMenuItem(_:)` to auto-disable it during an in-progress check.
+    /// That auto-disable is only cosmetic — a redundant click while a check is
+    /// already running is a no-op — so we accept always-enabled rather than
+    /// flip the whole menu to autovalidation and have to re-audit every other
+    /// item's enabled state.
+    func wireCheckForUpdates(target: AnyObject, action: Selector) {
+        updatesItem.target = target
+        updatesItem.action = action
+        updatesItem.isEnabled = true
     }
 
     func setLoginChecked(_ on: Bool) {

@@ -1,5 +1,6 @@
 import AppKit
 import AVFoundation
+import Sparkle
 import VotelliText
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -8,6 +9,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let recorder = AudioRecorder()
     private let indicator = RecordingIndicator()
     private let preferences = PreferencesWindowController()
+    /// Sparkle updater. Held here for the process lifetime because the updater
+    /// must outlive any in-progress check and there's exactly one per app — the
+    /// same reason the other long-lived collaborators above are stored properties.
+    private let updater = UpdaterManager()
     private var engine: TranscriptionEngine?
 
     /// Id of the engine that is loaded or currently loading, nil if none. Lets the
@@ -37,6 +42,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         status.onOpenAccessibility = { Permissions.openAccessibilitySettings() }
         status.onOpenInputMonitoring = { Permissions.openInputMonitoringSettings() }
         status.onOpenPreferences = { [weak self] in self?.preferences.show() }
+        // Hand the "Check for Updates…" item straight to Sparkle's controller.
+        // Targeting the controller's own `checkForUpdates(_:)` action is the
+        // wiring Sparkle documents; StatusItemController stays Sparkle-agnostic.
+        status.wireCheckForUpdates(
+            target: updater.controller,
+            action: #selector(SPUStandardUpdaterController.checkForUpdates(_:))
+        )
         status.onCopyHistoryEntry = { text in
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(text, forType: .string)

@@ -40,7 +40,35 @@ cp "$MODEL" "$RES/"
 cp -a "$WHISPER_BIN"/libwhisper*.dylib "$FRAMEWORKS/"
 cp -a "$WHISPER_BIN"/libggml*.dylib "$FRAMEWORKS/"
 
-# Point the executable at the bundled frameworks.
+# Embed Sparkle.framework. `swift build` links the app against Sparkle but does
+# NOT copy the framework into the .app, so we do it here. Locate the prebuilt
+# binary slice SwiftPM unpacked under .build/artifacts (path/naming varies by
+# SwiftPM version, so search rather than hardcode).
+SPARKLE_FW=$(find .build -type d -name Sparkle.framework -path '*artifacts*' | head -1)
+if [[ -z "$SPARKLE_FW" ]]; then
+    # Fallback: any Sparkle.framework under .build (e.g. a copied build product).
+    SPARKLE_FW=$(find .build -type d -name Sparkle.framework | head -1)
+fi
+if [[ -z "$SPARKLE_FW" ]]; then
+    echo "error: Sparkle.framework not found under .build. Run 'make build' first" >&2
+    echo "       so SwiftPM fetches the Sparkle binary artifact." >&2
+    exit 1
+fi
+# ditto preserves the versioned bundle layout and its symlinks (Versions/B,
+# Versions/Current -> B, and the top-level symlinks into Current). A plain
+# cp -RL / rsync-without-l would dereference those symlinks and produce a
+# structurally invalid, un-signable framework. Sparkle 2's version dir is B.
+ditto "$SPARKLE_FW" "$FRAMEWORKS/Sparkle.framework"
+EMBEDDED_SPARKLE="$FRAMEWORKS/Sparkle.framework"
+
+# This app is NOT sandboxed, so Sparkle's XPC services (sandbox-only helpers for
+# downloading/installing under App Sandbox) are dead weight — and signing them
+# would only add surface to get wrong. Remove them; Autoupdate + Updater.app stay.
+rm -rf "$EMBEDDED_SPARKLE/Versions/B/XPCServices"
+
+# Point the executable at the bundled frameworks. Both the whisper dylibs and
+# Sparkle.framework live in Contents/Frameworks, so this single rpath resolves
+# @rpath/Sparkle.framework/... too.
 install_name_tool -add_rpath "@executable_path/../Frameworks" "$MACOS/Votelli" 2>/dev/null || true
 
 # Make the bundled dylibs self-contained: drop the absolute build-dir rpath that
@@ -96,6 +124,16 @@ if [[ "$RELEASE_SIGN" == "1" ]]; then
         [[ -L "$dylib" ]] && continue  # skip version symlinks
         codesign --force --sign "$SIGN_ID" --timestamp "$dylib"
     done
+    # Sign Sparkle inside-out — the nested helpers first, then the framework, all
+    # BEFORE the app is signed below (a nested item re-signed after its container
+    # invalidates the container's seal). Each Sparkle executable carries its OWN
+    # identity plus hardened runtime + secure timestamp (notarization needs both);
+    # crucially, NONE get the app's entitlements — the updater helpers must not
+    # inherit Microphone/Accessibility. No --deep anywhere: Sparkle's own guidance
+    # is that --deep mis-signs its nested code; we name each piece explicitly.
+    codesign --force --sign "$SIGN_ID" --options runtime --timestamp "$EMBEDDED_SPARKLE/Versions/B/Updater.app"
+    codesign --force --sign "$SIGN_ID" --options runtime --timestamp "$EMBEDDED_SPARKLE/Versions/B/Autoupdate"
+    codesign --force --sign "$SIGN_ID" --options runtime --timestamp "$EMBEDDED_SPARKLE"
     codesign --force --sign "$SIGN_ID" --options runtime --timestamp \
         --entitlements Resources/Votelli.entitlements "$APP"
     echo "==> verifying signature"
@@ -104,6 +142,14 @@ else
     for dylib in "$FRAMEWORKS"/*.dylib; do
         codesign --force --sign "$SIGN_ID" --timestamp=none "$dylib" >/dev/null 2>&1 || true
     done
+    # Same inside-out order as the release path, with the dev identity and no
+    # hardened runtime / timestamp (so it works offline and doesn't churn TCC).
+    # Errors are NOT swallowed here (unlike the dylibs): Sparkle must be signed
+    # correctly for `codesign --verify --strict` to pass, so a failure should be
+    # loud. Still no app entitlements on the helpers and no --deep.
+    codesign --force --sign "$SIGN_ID" --timestamp=none "$EMBEDDED_SPARKLE/Versions/B/Updater.app"
+    codesign --force --sign "$SIGN_ID" --timestamp=none "$EMBEDDED_SPARKLE/Versions/B/Autoupdate"
+    codesign --force --sign "$SIGN_ID" --timestamp=none "$EMBEDDED_SPARKLE"
     codesign --force --sign "$SIGN_ID" --entitlements Resources/Votelli.entitlements "$APP"
 fi
 

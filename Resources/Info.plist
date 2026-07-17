@@ -24,5 +24,30 @@
     <string>Votelli listens while you hold the push-to-talk key and types what you say.</string>
     <key>NSHumanReadableCopyright</key>
     <string>Votelli</string>
+
+    <!-- Sparkle updater. Pull-only: the background scheduler is off, so the app
+         never checks for updates on its own and Sparkle's first-run "check
+         automatically?" prompt never appears. Updater.swift also sets this in
+         code (belt and suspenders) and supplies the appcast URL from there, which
+         is why there is no SUFeedURL key here. -->
+    <key>SUEnableAutomaticChecks</key>
+    <false/>
+
+    <!-- ****************************************************************
+         DEVELOPMENT PLACEHOLDER — NOT THE PRODUCTION KEY. DO NOT SHIP.
+         ****************************************************************
+         This is a THROWAWAY Ed25519 public key minted locally with Sparkle's
+         generate_keys so the app can initialize the updater cleanly on the dev
+         path. Its private half lives only in this developer's login Keychain and
+         can sign nothing users will ever receive.
+
+         Before ANY real release, replace this with the PRODUCTION public key —
+         run Sparkle's generate_keys on the release machine (the private half must
+         stay in that Keychain / secure backup) and paste the printed
+         SUPublicEDKey here. Appcast entries are then signed with the matching
+         private key. Shipping with this placeholder would let anyone who has this
+         throwaway private key serve updates, and would reject the real ones. -->
+    <key>SUPublicEDKey</key>
+    <string>oAPE77b7xX+bRFMIOJPT6fQFuPyQOGTRNF71cvFjGjo=</string>
 </dict>
 </plist>

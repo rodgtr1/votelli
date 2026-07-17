@@ -12,6 +12,16 @@ let package = Package(
         // extra features registered at startup. See AppExtensionPoints.
         .library(name: "VotelliCore", targets: ["VotelliCore"])
     ],
+    dependencies: [
+        // Sparkle powers the "Check for Updates…" menu item. It ships as a prebuilt
+        // binary xcframework, so SwiftPM downloads it rather than compiling from
+        // source — the first build fetches it. Sparkle is permissively (MIT-style)
+        // licensed, so vendoring it into this MIT repo is fine. The app links it but
+        // 'swift build' does NOT embed the framework into the .app; scripts/bundle.sh
+        // does that (and signs it inside-out). See Updater.swift for the pull-only
+        // posture — Sparkle never touches the network unless the user clicks.
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.9.0")
+    ],
     targets: [
         // Thin C wrapper exposing a minimal whisper.cpp API to Swift.
         .target(
@@ -31,7 +41,11 @@ let package = Package(
         // (see the Votelli target below, and the Pro repo's executable).
         .target(
             name: "VotelliCore",
-            dependencies: ["CWhisper", "VotelliText"],
+            dependencies: [
+                "CWhisper",
+                "VotelliText",
+                .product(name: "Sparkle", package: "Sparkle")
+            ],
             swiftSettings: [
                 .swiftLanguageMode(.v5)
             ]
