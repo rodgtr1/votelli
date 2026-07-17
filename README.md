@@ -14,8 +14,9 @@ Lives in the menu bar (top right), not the Dock. No window, no fuss.
 - **Offline by default** — Votelli makes **no network connections at all** during normal
   use. Your audio and transcripts never leave the machine. The only time it reaches the
   network is when *you* click **Check for Updates…** — a manual, opt-in check with no
-  background polling. Stay offline forever and everything keeps working; you just won't
-  see new versions until you ask.
+  background polling. When a newer version exists, Sparkle downloads and installs the
+  signed update in place. Stay offline forever and everything keeps working; you just
+  won't see new versions until you ask.
 - **Menu bar only** — no Dock icon, no window. Icon shows idle / recording / transcribing.
 - **Live waveform** — a floating HUD rises and falls with your voice while you hold the key.
 - **Pick your own hotkey** — Preferences lets you set the key by pressing it.
@@ -62,15 +63,21 @@ Requirements:
 ```bash
 git clone --recurse-submodules <repo-url> votelli
 cd votelli
-make setup     # one time: signing identity, whisper libs, model download
+make setup     # one time: whisper libs + model download
 make install   # build, bundle, sign, copy to /Applications, launch
 ```
 
-`make setup` does three things once:
-- creates a stable self-signed "Votelli Dev" code-signing identity so your
-  permissions persist across rebuilds (`scripts/setup_signing.sh`),
+`make setup` does two things once:
 - builds whisper.cpp as Metal-accelerated shared libraries,
 - downloads the `base.en` model into `Resources/`.
+
+Local builds sign with the project's Apple Developer ID when that certificate is
+present in your keychain — the **same** identity that signs releases, so your
+Microphone / Accessibility / Input Monitoring grants survive rebuilds and carry
+over to the notarized release. If you don't have that certificate (an outside
+contributor, say), the build signs **ad-hoc** automatically; that works fine
+locally, it just re-prompts for permissions on each rebuild. Either way there's
+no signing identity to set up by hand.
 
 Building locally means the app is **not** Gatekeeper-quarantined, so it launches
 without an "unidentified developer" warning.
@@ -100,7 +107,7 @@ Accessibility, relaunch once (`pkill -x Votelli; open /Applications/Votelli.app`
 
 | Target | What it does |
 |--------|--------------|
-| `make setup` | One-time: signing identity, whisper libs, model |
+| `make setup` | One-time: whisper libs, model |
 | `make install` | Build, bundle, sign, copy to /Applications, launch |
 | `make app` | Build and assemble `Votelli.app` without installing |
 | `make run` | Build and launch from the repo directory |
@@ -158,8 +165,9 @@ like any other Mac app — no Gatekeeper warning and nothing to clear by hand.
 
 That path needs the Developer ID identity and the `votelli-notary` notarization
 credentials on the build machine; see [PUBLISH.md](PUBLISH.md). Builds made from
-source with `make app` / `make install` are signed with the local development
-identity instead and are never quarantined.
+source with `make app` / `make install` use the same Developer ID when it's
+installed (ad-hoc otherwise) but skip hardened runtime and notarization; either
+way they're never quarantined.
 
 ## Uninstall
 

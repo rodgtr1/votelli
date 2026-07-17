@@ -5,9 +5,11 @@ BIN := $(APP)/Contents/MacOS/Votelli
 
 all: app
 
-# One-command setup for a fresh clone: signing identity, whisper libs, model.
+# One-command setup for a fresh clone: whisper libs + model. No signing step —
+# dev and release builds both sign with the Developer ID (see the `app` target),
+# falling back to ad-hoc automatically when that cert isn't installed, so there's
+# no identity to create up front.
 setup:
-	bash scripts/setup_signing.sh
 	bash scripts/build_whisper.sh
 	bash scripts/fetch_model.sh
 
@@ -46,7 +48,7 @@ logs:
 RELEASE_LEAF_HASH := 7351c39bc57da9bba73ffc330aaab0e0144adaa7
 
 # Build a drag-to-Applications DMG for public release. Forces the Developer ID
-# signing identity (no silent ad-hoc or dev-identity fallback), verifies the leaf
+# signing identity (no silent ad-hoc fallback), verifies the leaf
 # hash is unchanged so updates don't reset users' permissions, then notarizes and
 # staples the DMG. See scripts/make_dmg.sh notes.
 dmg:
