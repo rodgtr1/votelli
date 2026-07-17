@@ -39,21 +39,19 @@
     <key>SUEnableAutomaticChecks</key>
     <false/>
 
-    <!-- ****************************************************************
-         DEVELOPMENT PLACEHOLDER — NOT THE PRODUCTION KEY. DO NOT SHIP.
-         ****************************************************************
-         This is a THROWAWAY Ed25519 public key minted locally with Sparkle's
-         generate_keys so the app can initialize the updater cleanly on the dev
-         path. Its private half lives only in this developer's login Keychain and
-         can sign nothing users will ever receive.
+    <!-- Production Ed25519 key that verifies Sparkle updates. The matching private
+         half signs each appcast entry and lives ONLY in the release machine's login
+         Keychain (service "https://sparkle-project.org", account "ed25519"), backed
+         up outside this repo.
 
-         Before ANY real release, replace this with the PRODUCTION public key —
-         run Sparkle's generate_keys on the release machine (the private half must
-         stay in that Keychain / secure backup) and paste the printed
-         SUPublicEDKey here. Appcast entries are then signed with the matching
-         private key. Shipping with this placeholder would let anyone who has this
-         throwaway private key serve updates, and would reject the real ones. -->
+         Changing this value invalidates every update for every existing install:
+         Sparkle refuses any appcast entry not signed by the private key that pairs
+         with whatever public key the INSTALLED app shipped. There is no revocation
+         and no server. So this is frozen for the life of the product — losing the
+         private key means never being able to ship a trusted update again, and a
+         mismatch here silently breaks updates for everyone. Treat it like the
+         Developer ID identity. -->
     <key>SUPublicEDKey</key>
-    <string>oAPE77b7xX+bRFMIOJPT6fQFuPyQOGTRNF71cvFjGjo=</string>
+    <string>W5Jn7EJ/28kZ5Ml4wblCLvlr9N3Ih5pX2fs5SznPA98=</string>
 </dict>
 </plist>
