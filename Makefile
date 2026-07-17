@@ -24,8 +24,11 @@ build:
 	swift build -c release
 
 # Assemble and sign Votelli.app (builds whisper + model if missing).
+# Pass the Developer ID leaf hash so dev builds sign with the SAME cert as release
+# (Apple-anchored → TCC grants survive rebuilds); bundle.sh falls back to ad-hoc if
+# it isn't installed. Release builds (make dmg) additionally set REQUIRE_STABLE_IDENTITY.
 app: $(if $(wildcard third_party/whisper.cpp/build/bin/libwhisper.dylib),,whisper) model
-	bash scripts/bundle.sh
+	EXPECTED_LEAF_HASH=$(RELEASE_LEAF_HASH) bash scripts/bundle.sh
 
 # Build and launch via LaunchServices (required for mic/Accessibility TCC prompts).
 run: app
@@ -60,9 +63,12 @@ install: app
 	@echo "installed and launched /Applications/Votelli.app"
 
 # Remove TCC grants so permission prompts reappear (for testing first-run UX).
+# All three the app uses — including Input Monitoring, which the app checks via
+# IOHIDCheckAccess and which the earlier version of this target missed.
 dev-reset:
 	-tccutil reset Microphone media.travis.votelli
 	-tccutil reset Accessibility media.travis.votelli
+	-tccutil reset ListenEvent media.travis.votelli
 
 clean:
 	rm -rf .build $(APP)

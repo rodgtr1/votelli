@@ -11,6 +11,11 @@ Lives in the menu bar (top right), not the Dock. No window, no fuss.
 - **Fully local & fast** — on macOS 26+ Votelli uses Apple's on-device SpeechAnalyzer
   engine (the most accurate local option, with OS-managed models); everywhere else the
   bundled Whisper `base.en` model runs on the GPU via Metal. Nothing leaves your Mac.
+- **Offline by default** — Votelli makes **no network connections at all** during normal
+  use. Your audio and transcripts never leave the machine. The only time it reaches the
+  network is when *you* click **Check for Updates…** — a manual, opt-in check with no
+  background polling. Stay offline forever and everything keeps working; you just won't
+  see new versions until you ask.
 - **Menu bar only** — no Dock icon, no window. Icon shows idle / recording / transcribing.
 - **Live waveform** — a floating HUD rises and falls with your voice while you hold the key.
 - **Pick your own hotkey** — Preferences lets you set the key by pressing it.

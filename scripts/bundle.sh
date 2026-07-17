@@ -82,16 +82,22 @@ for dylib in "$FRAMEWORKS"/*.dylib; do
 done
 
 # Pick the signing identity. macOS keys the user's TCC grants (Microphone /
-# Accessibility / Input Monitoring) to the signing certificate's leaf hash, so
-# signing every release with the *same* identity is what lets permissions survive
-# app updates. Ad-hoc signing changes the code identity and forces every user to
-# re-grant — so release builds (REQUIRE_STABLE_IDENTITY=1) refuse it.
+# Accessibility / Input Monitoring) to the signing certificate — and for the two
+# high-privilege ones (Accessibility, Input Monitoring) it only PERSISTS the grant
+# across a rebuild when that cert is Apple-anchored, i.e. a Developer ID whose chain
+# satisfies `anchor apple generic`. A self-signed cert can never be Apple-anchored,
+# so macOS re-challenges those permissions every time the binary changes — which is
+# exactly the churn the old self-signed "Votelli Dev" identity caused.
 #
-# Release builds sign with the Developer ID certificate named by EXPECTED_LEAF_HASH
-# (selected by hash, not name, so a same-named cert can't silently substitute) and
-# add hardened runtime + a secure timestamp, both of which notarization requires.
-# Dev builds keep using the self-signed "Votelli Dev" identity: no hardened runtime,
-# no timestamp server, so they keep working offline and don't churn local TCC grants.
+# So there is ONE identity everywhere: the Developer ID named by EXPECTED_LEAF_HASH,
+# selected by hash (not name, so a same-named cert can't silently substitute). Dev
+# and release builds share it, which means TCC grants survive rebuilds AND survive
+# switching between a local build and the notarized release. The only difference is
+# that release builds (REQUIRE_STABLE_IDENTITY=1) add hardened runtime + a secure
+# timestamp (both required for notarization); dev builds skip those so they stay fast
+# and offline. Dev falls back to ad-hoc only when the Developer ID isn't present
+# (e.g. an outside contributor building the open-source app) — ad-hoc runs fine
+# locally, it just re-prompts for permissions on that machine on each rebuild.
 RELEASE_SIGN=0
 if [[ "${REQUIRE_STABLE_IDENTITY:-0}" == "1" ]]; then
     if [[ -z "${EXPECTED_LEAF_HASH:-}" ]]; then
@@ -110,12 +116,13 @@ if [[ "${REQUIRE_STABLE_IDENTITY:-0}" == "1" ]]; then
     SIGN_ID="$EXPECTED_LEAF_HASH"
     RELEASE_SIGN=1
     echo "==> code signing (release: Developer ID $EXPECTED_LEAF_HASH)"
-elif security find-identity -p codesigning ~/Library/Keychains/votelli-dev.keychain-db 2>/dev/null | grep -q "Votelli Dev"; then
-    SIGN_ID="Votelli Dev"
-    echo "==> code signing (Votelli Dev)"
+elif [[ -n "${EXPECTED_LEAF_HASH:-}" ]] && security find-identity -v -p codesigning 2>/dev/null | grep -qi "$EXPECTED_LEAF_HASH"; then
+    # Dev build, Developer ID available: same cert as release, no hardened runtime.
+    SIGN_ID="$EXPECTED_LEAF_HASH"
+    echo "==> code signing (dev: Developer ID $EXPECTED_LEAF_HASH, no hardened runtime)"
 else
     SIGN_ID="-"
-    echo "==> code signing (ad-hoc — run scripts/setup_signing.sh for stable identity)"
+    echo "==> code signing (ad-hoc — Developer ID not found; Accessibility / Input Monitoring re-prompt on each rebuild)"
 fi
 
 # Sign nested dylibs first, then the app bundle. Release signing is fatal on error;
