@@ -17,6 +17,14 @@ Lives in the menu bar (top right), not the Dock. No window, no fuss.
   background polling. When a newer version exists, Sparkle downloads and installs the
   signed update in place. Stay offline forever and everything keeps working; you just
   won't see new versions until you ask.
+- **Multilingual dictation** — the optional Large v3 Turbo engine auto-detects the spoken
+  language, so you can switch mid-session. Download it from Preferences when you want it.
+- **Searchable history** — filter your full transcription history (up to 5,000 entries) in
+  its own window. Click an entry to copy it.
+- **Custom vocabulary** — bias transcription toward your names and terms, plus replacement
+  rules applied to every finished transcript.
+- **AI cleanup** — on-device polish that removes filler, fixes punctuation, and reformats for
+  email, Slack, or code (macOS 26+).
 - **Menu bar only** — no Dock icon, no window. Icon shows idle / recording / transcribing.
 - **Live waveform** — a floating HUD rises and falls with your voice while you hold the key.
 - **Pick your own hotkey** — Preferences lets you set the key by pressing it.
@@ -44,22 +52,6 @@ Download, drag, approve once — no developer tools needed.
 
 Everything (Whisper model, Metal GPU shaders) is bundled. Requires an Apple Silicon
 Mac on macOS 13 or later. More on the [permissions](#first-run-permissions) below.
-
-## Votelli Pro
-
-Votelli is free. **Votelli Pro** unlocks more, all still fully on-device:
-
-- **Large-v3-turbo engine** — multilingual dictation that auto-detects the spoken language.
-- **Searchable history** — filter your full transcription history (up to 5,000 entries).
-- **Custom vocabulary** — bias transcription toward your names and terms, plus replacement rules.
-- **AI cleanup** — on-device polish that removes filler, fixes punctuation, and reformats for email, Slack, or code (macOS 26+).
-
-It's the same app you already have — a license unlocks these features. One-time purchase, no
-subscription, and nothing leaves your Mac.
-
-**[Get Votelli Pro →](https://travismedia.lemonsqueezy.com/checkout/buy/d2d0e477-8d40-4b4b-850c-2e2de0591f74)**
-
-After buying, your license key arrives by email; paste it into **Preferences → License**.
 
 ## Build from source
 
@@ -123,7 +115,7 @@ Accessibility, relaunch once (`pkill -x Votelli; open /Applications/Votelli.app`
 
 | Target | What it does |
 |--------|--------------|
-| `make setup` | One-time: whisper libs, model |
+| `make setup` | Run once: whisper libs, model |
 | `make install` | Build, bundle, sign, copy to /Applications, launch |
 | `make app` | Build and assemble `Votelli.app` without installing |
 | `make run` | Build and launch from the repo directory |
