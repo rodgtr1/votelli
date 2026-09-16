@@ -38,7 +38,45 @@ enum AudioDevices {
 
     /// The live device ID for a saved UID, or nil if that device isn't connected.
     static func deviceID(forUID uid: String) -> AudioDeviceID? {
-        inputDevices().first { $0.uid == uid }?.id
+        device(matchingUID: uid)?.id
+    }
+
+    /// The connected device a saved UID refers to. Exact match first; failing
+    /// that, the same device under a different UID. macOS bakes the USB port
+    /// location (or serial) into a USB device's UID, so the same mic plugged into
+    /// another port or dock comes back with a new UID and an exact match fails.
+    static func device(matchingUID uid: String) -> AudioInputDevice? {
+        let devices = inputDevices()
+        if let exact = devices.first(where: { $0.uid == uid }) { return exact }
+        let key = stableKey(forUID: uid)
+        return devices.first { stableKey(forUID: $0.uid) == key }
+    }
+
+    /// A USB audio UID is `AppleUSBAudioEngine:<vendor>:<product>:<location or
+    /// serial>:<interface>`. Drop the location/serial so the key survives a port
+    /// change. Any other UID is its own key.
+    static func stableKey(forUID uid: String) -> String {
+        let parts = uid.split(separator: ":", omittingEmptySubsequences: false)
+        guard parts.first == "AppleUSBAudioEngine", parts.count >= 5, let last = parts.last else {
+            return uid
+        }
+        return (parts.dropLast(2) + [last]).joined(separator: ":")
+    }
+
+    /// The system's current default input device, or nil if there is none.
+    static func defaultInputDeviceID() -> AudioDeviceID? {
+        var addr = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultInputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var id: AudioDeviceID = 0
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        let system = AudioObjectID(kAudioObjectSystemObject)
+        guard AudioObjectGetPropertyData(system, &addr, 0, nil, &size, &id) == noErr,
+              id != kAudioObjectUnknown
+        else { return nil }
+        return id
     }
 
     private static func hasInput(_ id: AudioDeviceID) -> Bool {

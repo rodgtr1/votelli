@@ -114,6 +114,15 @@ final class AudioRecorder {
     /// whether capture resumed.
     private func handleConfigurationChange() {
         guard isRecording, !isReconfiguring else { return }
+        // Pinning the input device (applyPreferredDevice) makes the engine post
+        // this notification once, right after the first start, even though nothing
+        // was unplugged: the engine keeps running and buffers keep arriving. A
+        // genuine device removal stops the engine. Only react to the latter, so
+        // the user doesn't get a bogus "Microphone changed" on their first clip.
+        guard !engine.isRunning else {
+            mdebug("configuration change notification while engine still running — ignoring")
+            return
+        }
         isReconfiguring = true
         defer { isReconfiguring = false }
 
@@ -138,16 +147,27 @@ final class AudioRecorder {
         return result
     }
 
-    /// Pin the engine's input to the user-chosen device so recording doesn't
-    /// follow the system default. No-op (uses default) if none is set or the
-    /// saved device is disconnected.
+    /// Pin the engine's input to the user-chosen device, or, with no usable
+    /// choice, to whatever the system default input is right now.
+    ///
+    /// Setting the device explicitly matters even for the default: left to pick
+    /// it itself, AVAudioEngine on macOS wraps the default input *and* the default
+    /// output in one aggregate device and starts both, so a slow output device
+    /// (a USB interface, say) adds ~0.5s to every hotkey press. Pinning the input
+    /// device directly skips the output side entirely. Falls through to the
+    /// engine's own default only if no device can be resolved at all.
     private func applyPreferredDevice(to input: AVAudioInputNode) {
-        guard let uid = Settings.shared.inputDeviceUID else { return }
-        guard let deviceID = AudioDevices.deviceID(forUID: uid) else {
-            mlog("pinned input device not connected (\(uid)); using system default")
-            return
+        var resolved: AudioDeviceID?
+        if let uid = Settings.shared.inputDeviceUID {
+            resolved = AudioDevices.deviceID(forUID: uid)
+            if resolved == nil {
+                mlog("pinned input device not connected (\(uid)); using system default")
+            }
         }
-        guard let unit = input.audioUnit else { return }
+        if resolved == nil {
+            resolved = AudioDevices.defaultInputDeviceID()
+        }
+        guard let deviceID = resolved, let unit = input.audioUnit else { return }
         var dev = deviceID
         let status = AudioUnitSetProperty(
             unit,

@@ -235,7 +235,11 @@ final class PreferencesWindowController: NSObject, NSWindowDelegate {
             inputDeviceUIDs.append(device.uid)
         }
 
-        if let saved = saved, let index = inputDeviceUIDs.firstIndex(of: saved) {
+        // Match the way the recorder does, so a USB mic that moved ports still
+        // shows as selected rather than "disconnected".
+        if let saved = saved,
+           let match = AudioDevices.device(matchingUID: saved),
+           let index = inputDeviceUIDs.firstIndex(of: match.uid) {
             inputDevicePopup.selectItem(at: index)
         } else if let saved = saved {
             // Saved device isn't currently connected — keep the choice visible.
